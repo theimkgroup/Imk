@@ -120,6 +120,10 @@
     .calc-hint { font-size:0.75rem; color:var(--accent); font-weight:600; margin-top:4px; }
     .modal-footer { padding:12px 16px; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:8px; background:#f8fafc; }
 
+    /* 4-Digit PIN Input Styling */
+    .pin-input { text-align:center; font-size:1.8rem; font-weight:900; letter-spacing:14px; padding:12px; border:2px solid var(--accent); border-radius:12px; }
+    .pin-error { color:var(--danger); font-size:0.84rem; font-weight:700; text-align:center; display:none; }
+
     .viewer-img-box { width:100%; height:42vh; max-height:360px; background:#fff; border-radius:12px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:center; padding:10px; position:relative; }
     .viewer-img-box img { max-width:100%; max-height:100%; object-fit:contain; }
     .viewer-title { font-size:1.45rem; font-weight:900; color:var(--text); line-height:1.2; }
@@ -160,7 +164,7 @@
     </div>
     <div class="top-tabs">
       <button class="top-tab active" id="tabCatalogue" onclick="switchTab('customer')">🛍️ Catalogue View</button>
-      <button class="top-tab" id="tabManage" onclick="switchTab('admin')">✏️ Edit / Add & PDF</button>
+      <button class="top-tab" id="tabManage" onclick="switchTab('admin')">🔒 Edit / Add & PDF</button>
     </div>
   </header>
 
@@ -212,6 +216,28 @@
       <button class="btn btn-primary" id="btnSavePdf" onclick="handleDownloadPDF()">📄 Save PDF</button>
       <button class="btn btn-whatsapp" id="btnShareWa" onclick="handleShareWhatsAppPDF()">📲 Share PDF WhatsApp</button>
       <button class="btn btn-secondary" onclick="handleShareWhatsAppText()">💬 Text List</button>
+    </div>
+  </div>
+
+  <!-- 4-Digit Admin PIN Modal -->
+  <div class="modal-backdrop" id="pinModal">
+    <div class="modal" style="max-width:360px;">
+      <div class="modal-header">
+        <h2>🔐 Admin Lock (4-Digit PIN)</h2>
+        <button class="close-btn" onclick="closeModal('pinModal')">&times;</button>
+      </div>
+      <form onsubmit="verifyPin(event)">
+        <div class="modal-body">
+          <p style="font-size:0.88rem; color:#334155; text-align:center;">Product Add / Edit karne ke liye apna <strong>4-digit PIN</strong> likhein:</p>
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="pinInput" class="pin-input" placeholder="••••" required autocomplete="off" />
+          <div id="pinError" class="pin-error">❌ Galat PIN! Dobara koshish karein.</div>
+          <div id="pinDefaultHint" style="font-size:0.75rem; color:var(--muted); text-align:center;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('pinModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">🔓 Unlock</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -322,13 +348,18 @@
   <div class="modal-backdrop" id="settingsModal">
     <div class="modal">
       <div class="modal-header">
-        <h2>Shop & Banner Settings</h2>
+        <h2>Shop, PIN & Banner Settings</h2>
         <button class="close-btn" onclick="closeModal('settingsModal')">&times;</button>
       </div>
       <form onsubmit="saveSettings(event)">
         <div class="modal-body">
+          <div class="form-group" style="background:#fef9c3; padding:10px; border-radius:10px; border:1px solid #facc15;">
+            <label style="color:#713f12;">🔐 Admin 4-Digit Password / PIN (Change Anytime)</label>
+            <input type="text" inputmode="numeric" pattern="\d{4}" maxlength="4" id="setAdminPin" placeholder="1234" required />
+          </div>
+
           <div class="form-group" style="background:#eff6ff; padding:10px; border-radius:10px; border:1px solid #93c5fd;">
-            <label style="color:#04153d;">IMK Banner / Logo (Original Full HD)</label>
+            <label style="color:#04153d;">IMK Banner / Logo (Full HD)</label>
             <div class="img-preview-box" style="height:110px; background:#04153d;" id="logoPreviewBox"><span style="color:#cbd5e1;font-size:0.8rem;">No banner selected</span></div>
             <div id="logoQualityNote" style="font-size:0.76rem; font-weight:700; margin-bottom:6px; color:#334155;"></div>
             <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;">
@@ -400,7 +431,7 @@
     function dbClear(s) { return new Promise((res, rej) => { const r = db.transaction(s, 'readwrite').objectStore(s).clear(); r.onsuccess = () => res(); r.onerror = () => rej(r.error); }); }
 
     let products = [], currentFilteredList = [], currentViewIndex = 0;
-    let isCustomerMode = true, isSingleCol = false;
+    let isCustomerMode = true, isSingleCol = false, isAdminUnlocked = false;
     let tempProductImage = '', tempLogoImage = '';
 
     let settings = {
@@ -413,8 +444,16 @@
       offerTitle: 'WHOLESALE CATALOGUE',
       footerNote: 'IMK ENTERPRISES • Shaheenabad Gujranwala • Order on WhatsApp',
       logo: '',
-      pdfPerPage: 4
+      pdfPerPage: 4,
+      adminPin: '1234'
     };
+
+    function drawRoundRect(ctx, x, y, w, h, r) {
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+      ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+      ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h);
+      ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+    }
 
     function sortProductsList() {
       products.sort((a, b) => {
@@ -428,48 +467,34 @@
       const c = document.createElement('canvas'); c.width = 400; c.height = 400;
       const ctx = c.getContext('2d');
       ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 400, 400);
-      ctx.fillStyle = bgColor; ctx.beginPath(); ctx.roundRect(40, 30, 320, 340, 24); ctx.fill();
+      ctx.fillStyle = bgColor; drawRoundRect(ctx, 40, 30, 320, 340, 24); ctx.fill();
       ctx.fillStyle = '#ffffff'; ctx.font = 'bold 38px Arial'; ctx.textAlign = 'center';
       ctx.fillText(title, 200, 190); ctx.font = '24px Arial'; ctx.fillText(sub, 200, 238);
       return c.toDataURL('image/jpeg', 0.85);
     }
 
-    // Crisp 1600x680 HD Vector-Drawn IMK Banner
     function useBuiltInHDBanner() {
       const W = 1600, H = 680;
       const c = document.createElement('canvas'); c.width = W; c.height = H;
       const ctx = c.getContext('2d');
 
-      // Deep futuristic navy-blue gradient
       const bg = ctx.createRadialGradient(W/2, H*0.42, 40, W/2, H*0.5, W*0.65);
-      bg.addColorStop(0, '#0ea5e9');
-      bg.addColorStop(0.32, '#1d4ed8');
-      bg.addColorStop(0.7, '#061a4d');
-      bg.addColorStop(1, '#020b24');
+      bg.addColorStop(0, '#0ea5e9'); bg.addColorStop(0.32, '#1d4ed8'); bg.addColorStop(0.7, '#061a4d'); bg.addColorStop(1, '#020b24');
       ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
 
-      // Glowing wireframe globe rings
-      ctx.strokeStyle = 'rgba(125, 211, 252, 0.28)';
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(125, 211, 252, 0.28)'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(W/2, H*0.42, 275, 0, Math.PI * 2); ctx.stroke();
       ctx.beginPath(); ctx.ellipse(W/2, H*0.42, 275, 110, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.beginPath(); ctx.ellipse(W/2, H*0.42, 135, 275, 0, 0, Math.PI * 2); ctx.stroke();
 
-      // Central metallic dark card
       ctx.save();
-      ctx.shadowColor = 'rgba(56, 189, 248, 0.75)';
-      ctx.shadowBlur = 45;
+      ctx.shadowColor = 'rgba(56, 189, 248, 0.75)'; ctx.shadowBlur = 45;
       const cardGrad = ctx.createLinearGradient(470, 110, 1130, 580);
-      cardGrad.addColorStop(0, '#0b2559');
-      cardGrad.addColorStop(0.5, '#071739');
-      cardGrad.addColorStop(1, '#0d2e6e');
-      ctx.fillStyle = cardGrad;
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.roundRect(470, 105, 660, 470, 26); ctx.fill(); ctx.stroke();
+      cardGrad.addColorStop(0, '#0b2559'); cardGrad.addColorStop(0.5, '#071739'); cardGrad.addColorStop(1, '#0d2e6e');
+      ctx.fillStyle = cardGrad; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 4;
+      drawRoundRect(ctx, 470, 105, 660, 470, 26); ctx.fill(); ctx.stroke();
       ctx.restore();
 
-      // Globe emblem above IMK
       const gx = W/2, gy = 215, gr = 74;
       const gGrad = ctx.createRadialGradient(gx-20, gy-20, 10, gx, gy, gr);
       gGrad.addColorStop(0, '#bae6fd'); gGrad.addColorStop(0.6, '#38bdf8'); gGrad.addColorStop(1, '#0369a1');
@@ -478,50 +503,36 @@
       ctx.beginPath(); ctx.ellipse(gx, gy, gr, 28, -0.2, 0, Math.PI*2); ctx.stroke();
       ctx.beginPath(); ctx.ellipse(gx, gy, 34, gr, 0, 0, Math.PI*2); ctx.stroke();
 
-      // Swooshing arrow around globe
       ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = 10;
       ctx.beginPath(); ctx.ellipse(gx, gy+8, 125, 36, -0.25, 0.15, Math.PI*1.15); ctx.stroke();
 
-      // Bold Silver/White IMK text
       ctx.textAlign = 'center';
       const txtGrad = ctx.createLinearGradient(0, 310, 0, 415);
       txtGrad.addColorStop(0, '#ffffff'); txtGrad.addColorStop(1, '#cbd5e1');
-      ctx.fillStyle = txtGrad;
-      ctx.font = '900 132px Arial';
+      ctx.fillStyle = txtGrad; ctx.font = 'bold 132px Arial';
       ctx.fillText('IMK', W/2, 410);
 
-      // ENTERPRISES
-      ctx.fillStyle = '#e2e8f0';
-      ctx.font = '700 44px Arial';
+      ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 44px Arial';
       ctx.fillText('E N T E R P R I S E S', W/2, 468);
 
-      // Gold divider + DRIVEN TO GROW
-      ctx.fillStyle = '#facc15';
-      ctx.fillRect(W/2 - 170, 492, 340, 4);
-      ctx.fillStyle = '#fef08a';
-      ctx.font = '700 28px Arial';
+      ctx.fillStyle = '#facc15'; ctx.fillRect(W/2 - 170, 492, 340, 4);
+      ctx.fillStyle = '#fef08a'; ctx.font = 'bold 28px Arial';
       ctx.fillText('DRIVEN TO GROW.', W/2, 538);
 
-      // Side slogans
-      ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff'; ctx.font = '900 48px Arial';
+      ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff'; ctx.font = 'bold 48px Arial';
       ctx.fillText('DRIVEN TO', 55, 165);
-      ctx.fillStyle = '#38bdf8'; ctx.font = '900 72px Arial';
+      ctx.fillStyle = '#38bdf8'; ctx.font = 'bold 72px Arial';
       ctx.fillText('GROW', 55, 240);
 
-      ctx.textAlign = 'right'; ctx.fillStyle = '#e0f2fe'; ctx.font = '900 38px Arial';
-      ctx.fillText('STRONGER', W - 55, 145);
-      ctx.fillText('TOGETHER', W - 55, 192);
-      ctx.fillStyle = '#38bdf8';
-      ctx.fillText('BRIGHTER', W - 55, 239);
-      ctx.fillText('TOMORROW', W - 55, 286);
+      ctx.textAlign = 'right'; ctx.fillStyle = '#e0f2fe'; ctx.font = 'bold 38px Arial';
+      ctx.fillText('STRONGER', W - 55, 145); ctx.fillText('TOGETHER', W - 55, 192);
+      ctx.fillStyle = '#38bdf8'; ctx.fillText('BRIGHTER', W - 55, 239); ctx.fillText('TOMORROW', W - 55, 286);
 
-      // Bottom logistics floor bar
-      ctx.fillStyle = 'rgba(255,255,255,0.12)';
-      ctx.fillRect(0, H - 56, W, 56);
-      ctx.textAlign = 'center'; ctx.fillStyle = '#bae6fd'; ctx.font = '700 26px Arial';
+      ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(0, H - 56, W, 56);
+      ctx.textAlign = 'center'; ctx.fillStyle = '#bae6fd'; ctx.font = 'bold 26px Arial';
       ctx.fillText('FMCG WHOLESALE DISTRIBUTION  •  GUJRANWALA  •  PAKISTAN', W/2, H - 20);
 
-      const url = c.toDataURL('image/png');
+      const url = c.toDataURL('image/jpeg', 0.96);
       tempLogoImage = url;
       document.getElementById('logoPreviewBox').innerHTML = `<img src="${url}" />`;
       updateLogoQualityNote(W, H);
@@ -565,17 +576,52 @@
       initDragAndDrop();
     }
 
+    // 4-Digit PIN Guard for Edit / Add & PDF Tab
     function switchTab(mode) {
+      if (mode === 'admin' && !isAdminUnlocked) {
+        document.getElementById('pinInput').value = '';
+        document.getElementById('pinError').style.display = 'none';
+        const currentPin = String(settings.adminPin || '1234');
+        document.getElementById('pinDefaultHint').textContent = (currentPin === '1234')
+          ? 'Default PIN: 1234 (Settings mein ja kar badal sakte hain)'
+          : '';
+        document.getElementById('pinModal').classList.add('open');
+        setTimeout(() => document.getElementById('pinInput').focus(), 100);
+        return;
+      }
+
+      if (mode === 'customer') {
+        isAdminUnlocked = false; // Auto-lock when switching back to Customer View
+      }
+
       isCustomerMode = (mode === 'customer');
       document.body.classList.toggle('customer-mode', isCustomerMode);
       document.getElementById('tabCatalogue').classList.toggle('active', isCustomerMode);
       document.getElementById('tabManage').classList.toggle('active', !isCustomerMode);
+      document.getElementById('tabManage').textContent = isAdminUnlocked ? '✏️ Edit / Add & PDF' : '🔒 Edit / Add & PDF';
+
       if (isCustomerMode) {
         isSingleCol = false;
         document.getElementById('productGrid').classList.remove('single-col');
         document.getElementById('btnGridToggle').textContent = '📱 1-Col Big';
       }
       renderProducts();
+    }
+
+    function verifyPin(e) {
+      e.preventDefault();
+      const entered = document.getElementById('pinInput').value.trim();
+      const correct = String(settings.adminPin || '1234');
+      if (entered === correct) {
+        isAdminUnlocked = true;
+        closeModal('pinModal');
+        switchTab('admin');
+        showToast('🔓 Unlocked!');
+      } else {
+        document.getElementById('pinError').style.display = 'block';
+        document.getElementById('pinInput').value = '';
+        document.getElementById('pinInput').focus();
+      }
     }
 
     function escapeHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -650,7 +696,7 @@
       document.getElementById('selectedCountText').textContent = `${products.filter(p => p.included !== false).length} of ${products.length}`;
 
       if (currentFilteredList.length === 0) {
-        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p style="font-size:1.05rem;font-weight:600;margin-bottom:8px;">No products found</p><p style="font-size:0.88rem;">Open <strong>"✏️ Edit / Add & PDF"</strong> tab above to add products.</p></div>`;
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p style="font-size:1.05rem;font-weight:600;margin-bottom:8px;">No products found</p><p style="font-size:0.88rem;">Open <strong>"🔒 Edit / Add & PDF"</strong> tab above to add products.</p></div>`;
         return;
       }
 
@@ -833,7 +879,7 @@
       if (!w) { note.textContent = ''; return; }
       if (w < 700) {
         note.style.color = '#dc2626';
-        note.textContent = `⚠️ Ye photo choti hai (${w}×${h} px) — is liye PDF mein blur aati hai! Upar "Use Built-in HD IMK Banner" dabayein ya HD photo lagayein.`;
+        note.textContent = `⚠️ Ye photo choti hai (${w}×${h} px) — is liye blur aati hai! Upar "Use Built-in HD IMK Banner" dabayein.`;
       } else {
         note.style.color = '#16a34a';
         note.textContent = `✅ Full HD Quality Ready: ${w}×${h} px`;
@@ -845,8 +891,7 @@
       const reader = new FileReader();
       reader.onload = (e) => {
         const rawUrl = e.target.result;
-        // For banner/logo: keep 100% original raw JPEG/PNG if under 3MB (zero canvas blur!)
-        if (target === 'logo' && (file.type === 'image/jpeg' || file.type === 'image/png') && file.size <= 3 * 1024 * 1024) {
+        if (target === 'logo' && file.type === 'image/jpeg' && file.size <= 3 * 1024 * 1024) {
           tempLogoImage = rawUrl;
           document.getElementById('logoPreviewBox').innerHTML = `<img src="${rawUrl}" />`;
           checkLogoResolution(rawUrl, updateLogoQualityNote);
@@ -854,7 +899,7 @@
         }
         const img = new Image();
         img.onload = () => {
-          const maxDim = target === 'logo' ? 2200 : 750, q = target === 'logo' ? 0.96 : 0.86;
+          const maxDim = target === 'logo' ? 2000 : 750, q = target === 'logo' ? 0.96 : 0.86;
           let w = img.width, h = img.height;
           if (w > maxDim || h > maxDim) {
             if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; } else { w = Math.round(w * maxDim / h); h = maxDim; }
@@ -973,6 +1018,7 @@
     }
 
     function openSettingsModal() {
+      document.getElementById('setAdminPin').value = settings.adminPin || '1234';
       document.getElementById('setBizName').value = settings.bizName;
       document.getElementById('setCity').value = settings.city || '';
       document.getElementById('setPhone').value = settings.phone || '';
@@ -989,6 +1035,12 @@
 
     async function saveSettings(e) {
       e.preventDefault();
+      const newPin = document.getElementById('setAdminPin').value.trim();
+      if (!/^\d{4}$/.test(newPin)) {
+        alert('Admin PIN sirf 4 digits (numbers) ka hona chahiye! (Maslan 1234)');
+        return;
+      }
+      settings.adminPin = newPin;
       settings.bizName = document.getElementById('setBizName').value.trim();
       settings.city = document.getElementById('setCity').value.trim();
       settings.phone = document.getElementById('setPhone').value.trim();
@@ -997,7 +1049,7 @@
       settings.offerTitle = document.getElementById('setOfferTitle').value.trim() || 'WHOLESALE CATALOGUE';
       settings.footerNote = document.getElementById('setFooter').value.trim();
       settings.logo = tempLogoImage;
-      await dbPut('settings', settings); applySettingsUI(); renderProducts(); closeModal('settingsModal'); showToast('Banner & settings saved!');
+      await dbPut('settings', settings); applySettingsUI(); renderProducts(); closeModal('settingsModal'); showToast('Settings & PIN saved!');
     }
 
     async function saveLayoutPref() { settings.pdfPerPage = parseInt(document.getElementById('pdfLayoutSelect').value, 10) || 4; await dbPut('settings', settings); }
@@ -1012,8 +1064,9 @@
       sortProductsList();
       const blob = new Blob([JSON.stringify({ settings, products, exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob), a = document.createElement('a');
-      a.href = url; a.download = `IMK-Enterprises-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click();
-      URL.revokeObjectURL(url); showToast('Backup downloaded!');
+      a.href = url; a.download = `IMK-Enterprises-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 3000); showToast('Backup downloaded!');
     }
     function importBackup(event) {
       const file = event.target.files[0]; if (!file) return;
@@ -1029,6 +1082,17 @@
       reader.readAsText(file);
     }
 
+    function ensureJsPDF() {
+      return new Promise((resolve) => {
+        if (window.jspdf && window.jspdf.jsPDF) { resolve(true); return; }
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js';
+        s.onload = () => resolve(Boolean(window.jspdf && window.jspdf.jsPDF));
+        s.onerror = () => resolve(false);
+        document.head.appendChild(s);
+      });
+    }
+
     function hexToRgb(hex) {
       const n = parseInt((hex || '#04153d').replace('#', ''), 16);
       return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
@@ -1038,7 +1102,12 @@
       sortProductsList();
       const selected = products.filter(p => p.included !== false);
       if (selected.length === 0) { alert('Please select at least 1 product.'); return null; }
-      if (!window.jspdf || !window.jspdf.jsPDF) { window.print(); return null; }
+
+      const ok = await ensureJsPDF();
+      if (!ok) {
+        alert('Internet connection slow ya band hai — PDF engine load nahi ho saka. Internet ON kar ke dobara try karein.');
+        return null;
+      }
 
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -1067,59 +1136,57 @@
       function drawHeader(pageNum) {
         if (pageNum === 1) {
           if (settings.logo && hasWideBanner) {
-            const pr = doc.getImageProperties(settings.logo);
-            const bannerH = Math.min(82, Math.round(pageW * pr.height / pr.width));
-            doc.setFillColor(4, 21, 61);
-            doc.rect(0, 0, pageW, bannerH, 'F');
+            try {
+              const pr = doc.getImageProperties(settings.logo);
+              const bannerH = Math.min(82, Math.round(pageW * pr.height / pr.width));
+              doc.setFillColor(4, 21, 61);
+              doc.rect(0, 0, pageW, bannerH, 'F');
 
-            const padY = 2;
-            const ratio = Math.min((pageW - 8) / pr.width, (bannerH - padY * 2) / pr.height);
-            const bw = pr.width * ratio, bh = pr.height * ratio;
-            const bx = (pageW - bw) / 2, by = (bannerH - bh) / 2;
+              const padY = 2;
+              const ratio = Math.min((pageW - 8) / pr.width, (bannerH - padY * 2) / pr.height);
+              const bw = pr.width * ratio, bh = pr.height * ratio;
+              const bx = (pageW - bw) / 2, by = (bannerH - bh) / 2;
 
-            doc.addImage(settings.logo, logoFmt, bx, by, bw, bh);
-            doc.setDrawColor(96, 165, 250);
-            doc.setLineWidth(0.5);
-            doc.rect(bx, by, bw, bh);
+              doc.addImage(settings.logo, logoFmt, bx, by, bw, bh);
+              doc.setDrawColor(96, 165, 250);
+              doc.setLineWidth(0.5);
+              doc.rect(bx, by, bw, bh);
 
-            const stripY = bannerH, stripH = 14;
-            doc.setFillColor(r, g, b);
-            doc.rect(0, stripY, pageW, stripH, 'F');
-            doc.setFillColor(250, 204, 21);
-            doc.rect(0, stripY, pageW, 1.1, 'F');
-            doc.rect(0, stripY + stripH - 1.1, pageW, 1.1, 'F');
+              const stripY = bannerH, stripH = 14;
+              doc.setFillColor(r, g, b); doc.rect(0, stripY, pageW, stripH, 'F');
+              doc.setFillColor(250, 204, 21); doc.rect(0, stripY, pageW, 1.1, 'F'); doc.rect(0, stripY + stripH - 1.1, pageW, 1.1, 'F');
 
-            doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
-            doc.text(`${settings.bizName || 'IMK ENTERPRISES'}  •  ${settings.city || ''}`, margin, stripY + 5.8);
-            doc.setTextColor(253, 224, 71); doc.setFontSize(9);
-            doc.text(`WhatsApp / Call: ${settings.phone || ''}`, margin, stripY + 11);
-            doc.setTextColor(255, 255, 255); doc.setFontSize(8);
-            doc.text(`${offerHeading.slice(0, 22)} • ${todayStr}`, pageW - margin, stripY + 8.5, { align: 'right' });
-            return bannerH + stripH + 4;
-          } else {
-            const h = 44;
-            doc.setFillColor(r, g, b); doc.rect(0, 0, pageW, h, 'F');
-            doc.setFillColor(250, 204, 21); doc.rect(0, h - 1.2, pageW, 1.2, 'F');
-            let tx = margin;
-            if (settings.logo) {
-              try {
-                const pr = doc.getImageProperties(settings.logo), ratio = Math.min(38 / pr.width, 38 / pr.height);
-                const lw = pr.width * ratio, lh = pr.height * ratio, ly = (h - 1.2 - lh) / 2;
-                doc.setFillColor(255, 255, 255); doc.roundedRect(margin - 0.8, ly - 0.8, lw + 1.6, lh + 1.6, 2, 2, 'F');
-                doc.addImage(settings.logo, logoFmt, margin, ly, lw, lh); tx = margin + lw + 5;
-              } catch (_) {}
-            }
-            const rw = pageW - margin - tx;
-            doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(settings.logo ? 18 : 21);
-            doc.text(settings.bizName || 'IMK ENTERPRISES', tx, 12);
-            doc.setTextColor(219, 234, 254); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
-            if (settings.city) doc.text(doc.splitTextToSize(settings.city, rw).slice(0, 1), tx, 18.5);
-            if (settings.phone) { doc.setTextColor(253, 224, 71); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.text(doc.splitTextToSize('WhatsApp / Call: ' + settings.phone, rw).slice(0, 2), tx, 25); }
-            doc.setFillColor(255, 255, 255); doc.roundedRect(tx, 33, Math.min(rw, 96), 6.5, 1.5, 1.5, 'F');
-            doc.setTextColor(r, g, b); doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
-            doc.text(`${offerHeading.slice(0, 32)}  •  ${todayStr}`, tx + 3, 37.5);
-            return h + 4;
+              doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+              doc.text(`${settings.bizName || 'IMK ENTERPRISES'}  •  ${settings.city || ''}`, margin, stripY + 5.8);
+              doc.setTextColor(253, 224, 71); doc.setFontSize(9);
+              doc.text(`WhatsApp / Call: ${settings.phone || ''}`, margin, stripY + 11);
+              doc.setTextColor(255, 255, 255); doc.setFontSize(8);
+              doc.text(`${offerHeading.slice(0, 22)} • ${todayStr}`, pageW - margin, stripY + 8.5, { align: 'right' });
+              return bannerH + stripH + 4;
+            } catch (_) {}
           }
+          const h = 44;
+          doc.setFillColor(r, g, b); doc.rect(0, 0, pageW, h, 'F');
+          doc.setFillColor(250, 204, 21); doc.rect(0, h - 1.2, pageW, 1.2, 'F');
+          let tx = margin;
+          if (settings.logo) {
+            try {
+              const pr = doc.getImageProperties(settings.logo), ratio = Math.min(38 / pr.width, 38 / pr.height);
+              const lw = pr.width * ratio, lh = pr.height * ratio, ly = (h - 1.2 - lh) / 2;
+              doc.setFillColor(255, 255, 255); doc.roundedRect(margin - 0.8, ly - 0.8, lw + 1.6, lh + 1.6, 2, 2, 'F');
+              doc.addImage(settings.logo, logoFmt, margin, ly, lw, lh); tx = margin + lw + 5;
+            } catch (_) {}
+          }
+          const rw = pageW - margin - tx;
+          doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(settings.logo ? 18 : 21);
+          doc.text(settings.bizName || 'IMK ENTERPRISES', tx, 12);
+          doc.setTextColor(219, 234, 254); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+          if (settings.city) doc.text(doc.splitTextToSize(settings.city, rw).slice(0, 1), tx, 18.5);
+          if (settings.phone) { doc.setTextColor(253, 224, 71); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.text(doc.splitTextToSize('WhatsApp / Call: ' + settings.phone, rw).slice(0, 2), tx, 25); }
+          doc.setFillColor(255, 255, 255); doc.roundedRect(tx, 33, Math.min(rw, 96), 6.5, 1.5, 1.5, 'F');
+          doc.setTextColor(r, g, b); doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+          doc.text(`${offerHeading.slice(0, 32)}  •  ${todayStr}`, tx + 3, 37.5);
+          return h + 4;
         } else {
           const h = 16;
           doc.setFillColor(r, g, b); doc.rect(0, 0, pageW, h, 'F');
@@ -1188,11 +1255,12 @@
 
         if (p.image) {
           try {
+            const pFmt = p.image.startsWith('data:image/png') ? 'PNG' : 'JPEG';
             const pr = doc.getImageProperties(p.image);
             const maxW = cardW - cfg.imgPad * 2, maxH = imgAreaH - cfg.imgPad * 2;
             const ratio = Math.min(maxW / pr.width, maxH / pr.height);
             const iw = pr.width * ratio, ih = pr.height * ratio;
-            doc.addImage(p.image, 'JPEG', x + (cardW - iw) / 2, y + cfg.imgPad + (maxH - ih) / 2, iw, ih);
+            doc.addImage(p.image, pFmt, x + (cardW - iw) / 2, y + cfg.imgPad + (maxH - ih) / 2, iw, ih);
           } catch (_) {}
         }
 
@@ -1257,16 +1325,26 @@
       return { blob: doc.output('blob'), fileName: `${safeName}-Catalogue-${new Date().toISOString().slice(0, 10)}.pdf` };
     }
 
+    function triggerBlobDownload(blob, fileName) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 5000);
+    }
+
     async function handleDownloadPDF() {
       const btn = document.getElementById('btnSavePdf'); btn.disabled = true; btn.textContent = '⏳ Creating...';
       try {
         const res = await buildCataloguePDF();
         if (res) {
-          const url = URL.createObjectURL(res.blob), a = document.createElement('a');
-          a.href = url; a.download = res.fileName; a.click();
-          setTimeout(() => URL.revokeObjectURL(url), 5000);
+          triggerBlobDownload(res.blob, res.fileName);
           showToast('PDF saved!');
         }
+      } catch (err) {
+        alert('Save PDF Error: ' + (err && err.message ? err.message : err));
       } finally { btn.disabled = false; btn.textContent = '📄 Save PDF'; }
     }
 
@@ -1274,20 +1352,23 @@
       const btn = document.getElementById('btnShareWa'); btn.disabled = true; btn.textContent = '⏳ Preparing...';
       try {
         const res = await buildCataloguePDF(); if (!res) return;
-        const file = new File([res.blob], res.fileName, { type: 'application/pdf' });
         const shareText = `*${settings.bizName}*\n${settings.city}\nUpdated Product Price Catalogue.\nWhatsApp / Call: ${settings.phone}`;
+        const file = new File([res.blob], res.fileName, { type: 'application/pdf' });
+
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: settings.bizName + ' Catalogue', text: shareText });
-          showToast('Shared on WhatsApp!');
-        } else {
-          const url = URL.createObjectURL(res.blob), a = document.createElement('a');
-          a.href = url; a.download = res.fileName; a.click();
-          setTimeout(() => URL.revokeObjectURL(url), 5000);
-          showToast('PDF saved! Attach it in WhatsApp.', 4500);
-          window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+          try {
+            await navigator.share({ files: [file], title: settings.bizName + ' Catalogue', text: shareText });
+            showToast('Shared on WhatsApp!');
+            return;
+          } catch (shareErr) {
+            if (shareErr && shareErr.name === 'AbortError') return;
+          }
         }
+        triggerBlobDownload(res.blob, res.fileName);
+        showToast('PDF saved! Attach it in WhatsApp.', 4500);
+        window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
       } catch (err) {
-        if (err && err.name !== 'AbortError') showToast('Tap "Save PDF" and send in WhatsApp.', 4000);
+        alert('Share Error: ' + (err && err.message ? err.message : err));
       } finally { btn.disabled = false; btn.textContent = '📲 Share PDF WhatsApp'; }
     }
 
