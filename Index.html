@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#04153d" />
+  <title>IMK ENTERPRISES - Catalogue</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js"></script>
+  <style>
+    :root { --primary:#04153d; --accent:#0f3478; --bg:#f1f5f9; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#cbd5e1; --danger:#dc2626; --whatsapp:#16a34a; }
+    * { box-sizing:border-box; margin:0; padding:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
+    body { background:var(--bg); color:var(--text); padding-bottom:90px; }
+    body.customer-mode { padding-bottom:24px; }
+
+    .app-header { background:var(--primary); color:#fff; padding:10px 12px 0; position:sticky; top:0; z-index:50; box-shadow:0 2px 10px rgba(0,0,0,0.25); }
+    .header-top { display:flex; justify-content:space-between; align-items:center; gap:8px; max-width:1100px; margin:0 auto 10px; }
+    .brand-info { display:flex; align-items:center; gap:9px; min-width:0; }
+    .brand-logo { height:46px; max-width:94px; border-radius:7px; object-fit:cover; background:#04153d; flex-shrink:0; border:1px solid rgba(255,255,255,0.45); }
+    .brand-text { min-width:0; }
+    .brand-text h1 { font-size:1.06rem; letter-spacing:0.4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .brand-text p { font-size:0.71rem; opacity:0.94; line-height:1.25; word-break:break-word; }
+    .header-actions { display:flex; gap:5px; flex-shrink:0; }
+
+    .top-tabs { display:grid; grid-template-columns:1fr 1fr; gap:6px; max-width:1100px; margin:0 auto; }
+    .top-tab { border:none; background:rgba(255,255,255,0.14); color:rgba(255,255,255,0.88); padding:9px 8px; font-size:0.86rem; font-weight:700; cursor:pointer; border-radius:10px 10px 0 0; display:flex; align-items:center; justify-content:center; gap:5px; }
+    .top-tab.active { background:var(--bg); color:var(--primary); box-shadow:0 -2px 6px rgba(0,0,0,0.1); }
+
+    .btn { border:none; border-radius:8px; padding:9px 12px; font-size:0.86rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:4px; }
+    .btn:active { transform:scale(0.96); }
+    .btn:disabled { opacity:0.5; cursor:not-allowed; }
+    .btn-white { background:#fff; color:var(--primary); }
+    .btn-gold { background:#facc15; color:#0f172a; }
+    .btn-outline-white { background:rgba(255,255,255,0.16); color:#fff; border:1px solid rgba(255,255,255,0.35); }
+    .btn-primary { background:var(--accent); color:#fff; }
+    .btn-whatsapp { background:var(--whatsapp); color:#fff; }
+    .btn-secondary { background:#e2e8f0; color:var(--text); }
+    .btn-danger { background:#fee2e2; color:var(--danger); }
+    .btn-sm { padding:6px 9px; font-size:0.76rem; border-radius:6px; }
+
+    body.customer-mode .admin-only { display:none !important; }
+    body.customer-mode .product-card.excluded { display:none !important; }
+
+    .container { max-width:1100px; margin:10px auto; padding:0 8px; }
+    .toolbar, .admin-bar { background:var(--card); padding:9px; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,0.06); display:flex; flex-wrap:wrap; gap:7px; align-items:center; margin-bottom:9px; }
+    .admin-bar { justify-content:space-between; }
+    .admin-bar-btns { display:flex; flex-wrap:wrap; gap:6px; }
+    .search-box { flex:1; min-width:140px; }
+    input, select { width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:0.9rem; background:#fff; color:var(--text); }
+    input:focus, select:focus { outline:2px solid var(--accent); border-color:transparent; }
+
+    .stats-bar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; font-size:0.8rem; color:var(--muted); }
+
+    .product-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:9px; }
+    .product-grid.single-col { grid-template-columns:1fr; gap:14px; }
+    @media (min-width:700px) {
+      .product-grid { grid-template-columns:repeat(auto-fill,minmax(235px,1fr)); gap:16px; }
+      .product-grid.single-col { grid-template-columns:repeat(2,1fr); gap:18px; }
+    }
+
+    .product-card { background:var(--card); border-radius:13px; border:1.5px solid #cbd5e1; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 2px 7px rgba(0,0,0,0.06); position:relative; transition:transform 0.14s,border-color 0.14s; }
+    .product-card.excluded { opacity:0.48; border-style:dashed; }
+    .product-card.dragging { opacity:0.35; border:2px dashed var(--accent); transform:scale(0.96); }
+    .product-card.drag-over { border:2.5px solid #eab308; box-shadow:0 0 0 4px rgba(234,179,8,0.3); transform:scale(1.02); }
+
+    .card-top-controls { position:absolute; top:7px; left:7px; right:7px; display:flex; justify-content:space-between; align-items:flex-start; z-index:2; pointer-events:none; }
+    .card-check { pointer-events:auto; width:22px; height:22px; accent-color:var(--accent); cursor:pointer; background:#fff; border-radius:4px; }
+    .card-badge { background:#dc2626; color:#fff; font-size:0.65rem; font-weight:800; padding:3px 6px; border-radius:999px; text-transform:uppercase; box-shadow:0 1px 3px rgba(0,0,0,0.22); }
+    .card-badge.new { background:#2563eb; }
+    .card-badge.oos { background:#475569; }
+
+    .card-clickable { cursor:pointer; display:flex; flex-direction:column; flex:1; }
+    .card-img-wrap { width:100%; height:158px; background:#fff; display:flex; align-items:center; justify-content:center; padding:5px; border-bottom:1px solid #e2e8f0; }
+    body.customer-mode .card-img-wrap { height:172px; }
+    .single-col .card-img-wrap { height:245px; }
+    .card-img-wrap img { max-width:100%; max-height:100%; object-fit:contain; }
+
+    .card-body { padding:8px 9px; display:flex; flex-direction:column; flex:1; }
+    .card-cat { font-size:0.66rem; color:var(--muted); text-transform:uppercase; margin-bottom:2px; }
+    .card-title { font-size:1.02rem; font-weight:800; color:var(--text); line-height:1.22; margin-bottom:3px; }
+    body.customer-mode .card-title { font-size:1.08rem; }
+    .single-col .card-title { font-size:1.22rem; }
+    .card-unit { font-size:0.76rem; color:var(--muted); margin-bottom:6px; }
+
+    .card-price-box { margin-top:auto; background:#eff6ff; border:1.5px solid #93c5fd; border-radius:8px; padding:6px 8px; }
+    .card-tp-row { display:flex; justify-content:space-between; align-items:center; gap:4px; font-size:0.82rem; font-weight:700; color:#334155; margin-bottom:2px; }
+    .card-tp-strike { text-decoration:line-through; color:#64748b; }
+    .card-off-pill { background:#dc2626; color:#fff; font-size:0.64rem; font-weight:800; padding:2px 5px; border-radius:4px; }
+    .card-sale-row { font-size:1.18rem; font-weight:900; color:var(--accent); letter-spacing:-0.2px; }
+    body.customer-mode .card-sale-row { font-size:1.24rem; }
+    .single-col .card-sale-row { font-size:1.42rem; }
+
+    .card-order-bar { display:flex; justify-content:space-between; align-items:center; gap:4px; padding:5px 6px; background:#e2e8f0; border-top:1px solid #cbd5e1; font-size:0.74rem; font-weight:700; color:#1e293b; }
+    .drag-handle { flex:1; display:flex; align-items:center; justify-content:center; gap:4px; background:#fff; border:1.5px dashed #64748b; border-radius:6px; padding:6px 4px; cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none; color:var(--accent); font-weight:800; font-size:0.75rem; }
+    .drag-handle:active { cursor:grabbing; background:#dbeafe; }
+    .num-jump-btn { background:var(--accent); color:#fff; border:none; border-radius:6px; padding:6px 7px; font-size:0.74rem; font-weight:800; cursor:pointer; }
+    .order-btns { display:flex; gap:3px; }
+    .order-btns .btn { padding:5px 6px; font-size:0.72rem; background:#fff; border:1px solid #cbd5e1; color:var(--text); }
+
+    .card-actions { display:flex; gap:4px; padding:6px; background:#f8fafc; border-top:1px solid #e2e8f0; }
+    .card-actions .btn { flex:1; padding:6px 4px; font-size:0.74rem; }
+
+    .drag-ghost { position:fixed; z-index:999; pointer-events:none; background:var(--accent); color:#fff; padding:8px 14px; border-radius:999px; font-size:0.85rem; font-weight:800; box-shadow:0 8px 20px rgba(0,0,0,0.34); transform:translate(-50%,-135%); white-space:nowrap; display:none; }
+
+    .bottom-bar { position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #e2e8f0; padding:9px 10px; z-index:45; box-shadow:0 -4px 12px rgba(0,0,0,0.08); }
+    .bottom-inner { max-width:1100px; margin:0 auto; display:flex; gap:7px; flex-wrap:wrap; }
+    .bottom-inner .btn { flex:1; min-width:98px; padding:11px 8px; font-size:0.83rem; }
+
+    .modal-backdrop { position:fixed; inset:0; background:rgba(15,23,42,0.72); display:none; align-items:center; justify-content:center; padding:12px; z-index:100; }
+    .modal-backdrop.open { display:flex; }
+    .modal { background:#fff; border-radius:16px; width:100%; max-width:490px; max-height:92vh; overflow-y:auto; box-shadow:0 20px 35px rgba(0,0,0,0.3); }
+    .modal-header { padding:13px 16px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; background:#fff; z-index:2; }
+    .modal-header h2 { font-size:1.05rem; }
+    .close-btn { background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--muted); padding:0 4px; }
+    .modal-body { padding:15px; display:flex; flex-direction:column; gap:11px; }
+    .form-group label { display:block; font-size:0.82rem; font-weight:600; margin-bottom:4px; color:#334155; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .form-row-3 { display:grid; grid-template-columns:1fr 0.8fr 1fr; gap:8px; }
+    .img-preview-box { width:100%; height:125px; border:2px dashed var(--border); border-radius:10px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#f8fafc; margin-bottom:6px; }
+    .img-preview-box img { max-width:100%; max-height:100%; object-fit:contain; }
+    .calc-hint { font-size:0.75rem; color:var(--accent); font-weight:600; margin-top:4px; }
+    .modal-footer { padding:12px 16px; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:8px; background:#f8fafc; }
+
+    .viewer-img-box { width:100%; height:42vh; max-height:360px; background:#fff; border-radius:12px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:center; padding:10px; position:relative; }
+    .viewer-img-box img { max-width:100%; max-height:100%; object-fit:contain; }
+    .viewer-title { font-size:1.45rem; font-weight:900; color:var(--text); line-height:1.2; }
+    .viewer-meta { font-size:0.9rem; color:var(--muted); }
+    .viewer-price-card { background:#eff6ff; border:2px solid var(--accent); border-radius:12px; padding:12px 14px; }
+    .viewer-tp { font-size:1.04rem; font-weight:700; color:#475569; display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+    .viewer-sale { font-size:1.72rem; font-weight:900; color:var(--accent); }
+    .viewer-nav { display:flex; gap:8px; }
+    .viewer-nav .btn { flex:1; padding:11px; }
+
+    .toast { position:fixed; top:82px; left:50%; transform:translateX(-50%); background:#0f172a; color:#fff; padding:10px 18px; border-radius:999px; font-size:0.85rem; z-index:200; display:none; box-shadow:0 4px 12px rgba(0,0,0,0.28); text-align:center; max-width:90%; }
+    .empty-state { text-align:center; padding:48px 16px; background:#fff; border-radius:12px; color:var(--muted); }
+
+    @media print {
+      .app-header, .toolbar, .admin-bar, .stats-bar, .bottom-bar, .card-actions, .card-check, .card-order-bar { display:none !important; }
+      body { background:#fff; padding:0; }
+      .product-card.excluded { display:none !important; }
+      .product-grid { grid-template-columns:repeat(2,1fr) !important; gap:12px !important; }
+      .product-card { break-inside:avoid; page-break-inside:avoid; }
+    }
+  </style>
+</head>
+<body class="customer-mode">
+
+  <header class="app-header">
+    <div class="header-top">
+      <div class="brand-info">
+        <img id="headerLogo" class="brand-logo" style="display:none;" alt="IMK Logo" />
+        <div class="brand-text">
+          <h1 id="headerBizName">IMK ENTERPRISES</h1>
+          <p id="headerBizSub">Shaheenabad Gujranwala Pakistan | 03015140572 / 03030930726 / 03016460454</p>
+        </div>
+      </div>
+      <div class="header-actions admin-only">
+        <button class="btn btn-outline-white btn-sm" onclick="openSettingsModal()">⚙️ Shop</button>
+        <button class="btn btn-white btn-sm" onclick="openProductModal()">+ Add</button>
+      </div>
+    </div>
+    <div class="top-tabs">
+      <button class="top-tab active" id="tabCatalogue" onclick="switchTab('customer')">🛍️ Catalogue View</button>
+      <button class="top-tab" id="tabManage" onclick="switchTab('admin')">✏️ Edit / Add & PDF</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="toolbar">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search product name or pack..." oninput="renderProducts()" />
+      </div>
+      <div style="min-width:125px;">
+        <select id="categoryFilter" onchange="renderProducts()">
+          <option value="ALL">All Categories</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary btn-sm" id="btnGridToggle" onclick="toggleAppGrid()">📱 1-Col Big</button>
+    </div>
+
+    <div class="admin-bar admin-only">
+      <div class="admin-bar-btns">
+        <button class="btn btn-primary btn-sm" onclick="openProductModal()">+ Add Product</button>
+        <button class="btn btn-gold btn-sm" id="btnUploadBannerQuick" onclick="openSettingsModal()">🖼️ Upload IMK Banner</button>
+        <button class="btn btn-secondary btn-sm" onclick="openBulkModal()">💹 Bulk %</button>
+      </div>
+      <div style="font-size:0.74rem; color:var(--muted);">Hold <strong>⠿ Drag</strong> to reorder</div>
+    </div>
+
+    <div class="stats-bar admin-only">
+      <div>
+        <strong id="selectedCountText">0</strong> items selected
+        <button class="btn btn-secondary btn-sm" style="margin-left:5px;" onclick="toggleSelectAll()">Toggle All</button>
+      </div>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <label for="pdfLayoutSelect" style="font-size:0.8rem;">PDF View:</label>
+        <select id="pdfLayoutSelect" style="width:auto; padding:4px 8px; font-size:0.8rem;" onchange="saveLayoutPref()">
+          <option value="4">4 Items / Page (Clear)</option>
+          <option value="2">2 Items / Page (Extra Large)</option>
+          <option value="6">6 Items / Page (Medium)</option>
+          <option value="9">9 Items / Page (Compact)</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="productGrid" class="product-grid"></div>
+  </main>
+
+  <div id="dragGhost" class="drag-ghost">Moving item...</div>
+
+  <div class="bottom-bar admin-only">
+    <div class="bottom-inner">
+      <button class="btn btn-primary" id="btnSavePdf" onclick="handleDownloadPDF()">📄 Save PDF</button>
+      <button class="btn btn-whatsapp" id="btnShareWa" onclick="handleShareWhatsAppPDF()">📲 Share PDF WhatsApp</button>
+      <button class="btn btn-secondary" onclick="handleShareWhatsAppText()">💬 Text List</button>
+    </div>
+  </div>
+
+  <!-- Full-Screen Product Viewer -->
+  <div class="modal-backdrop" id="productViewModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="viewHeaderBiz">IMK ENTERPRISES</h2>
+        <button class="close-btn" onclick="closeModal('productViewModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="viewer-img-box">
+          <img id="viewImg" alt="Product" />
+          <span id="viewBadge" class="card-badge" style="position:absolute; top:10px; right:10px; display:none;"></span>
+        </div>
+        <div>
+          <div class="viewer-meta" id="viewMeta"></div>
+          <div class="viewer-title" id="viewTitle"></div>
+        </div>
+        <div class="viewer-price-card" id="viewPriceCard"></div>
+        <div class="viewer-nav">
+          <button class="btn btn-secondary" onclick="stepViewer(-1)">◀ Previous</button>
+          <button class="btn btn-whatsapp" onclick="shareSingleProductWhatsApp()">📲 Share Item</button>
+          <button class="btn btn-secondary" onclick="stepViewer(1)">Next ▶</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulk % Modal -->
+  <div class="modal-backdrop" id="bulkModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>💹 Bulk % Price Update</h2>
+        <button class="close-btn" onclick="closeModal('bulkModal')">&times;</button>
+      </div>
+      <form onsubmit="applyBulkPercentage(event)">
+        <div class="modal-body">
+          <div class="form-group"><label>Apply to Category</label><select id="bulkCategory"><option value="ALL">All Products</option></select></div>
+          <div class="form-group">
+            <label>Action</label>
+            <select id="bulkAction">
+              <option value="discount_tp">Set Sale Price = T.P minus % Discount</option>
+              <option value="change_sale">Increase / Decrease Sale Price by %</option>
+              <option value="change_tp">Increase / Decrease T.P & Sale Price by %</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Percentage % (e.g. 10 or -5)</label><input type="number" step="any" id="bulkPercent" placeholder="e.g. 10" required /></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('bulkModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Apply Update</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add / Edit Product Modal -->
+  <div class="modal-backdrop" id="productModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="productModalTitle">Add Product</h2>
+        <button class="close-btn" onclick="closeModal('productModal')">&times;</button>
+      </div>
+      <form id="productForm" onsubmit="saveProduct(event)">
+        <div class="modal-body">
+          <input type="hidden" id="prodId" />
+          <div class="form-group">
+            <label>Product Photo (Auto-crops white borders)</label>
+            <div class="img-preview-box" id="prodImgPreviewBox"><span style="color:#94a3b8; font-size:0.85rem;">No photo selected</span></div>
+            <input type="file" id="prodImageInput" accept="image/*" onchange="handleImageUpload(event, 'product')" />
+          </div>
+          <div class="form-group"><label>Product Name *</label><input type="text" id="prodName" placeholder="e.g. Tapal Danedar 900g" required /></div>
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px;">
+            <div class="form-row-3">
+              <div class="form-group"><label>T.P. Price (<span class="currencyLabel">Rs.</span>)</label><input type="number" step="any" id="prodTpPrice" placeholder="1500" oninput="onTpOrDiscountInput()" /></div>
+              <div class="form-group"><label>Discount %</label><input type="number" step="any" id="prodDiscountPct" placeholder="10" oninput="onTpOrDiscountInput()" /></div>
+              <div class="form-group"><label>Sale Price (<span class="currencyLabel">Rs.</span>) *</label><input type="number" step="any" id="prodSalePrice" placeholder="1350" required oninput="onSalePriceInput()" /></div>
+            </div>
+            <div class="calc-hint" id="calcHintText">💡 T.P aur Discount % likhein, Sale Price khud adjust ho jayegi!</div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Pack / Unit Size</label><input type="text" id="prodUnit" placeholder="1 Carton (12 Pcs)" /></div>
+            <div class="form-group">
+              <label>Category</label>
+              <input type="text" id="prodCategory" list="categorySuggestions" placeholder="Tea & Beverages" />
+              <datalist id="categorySuggestions">
+                <option value="Tea & Beverages"><option value="Cooking Oil & Ghee"><option value="Biscuits & Snacks"><option value="Soaps & Detergents"><option value="Spices & Staples"><option value="Dairy & Milk"><option value="Personal Care">
+              </datalist>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Badge / Tag (Optional)</label>
+            <select id="prodBadge">
+              <option value="">None</option><option value="HOT OFFER">HOT OFFER</option><option value="NEW">NEW ARRIVAL</option><option value="WHOLESALE">WHOLESALE RATE</option><option value="OUT OF STOCK">OUT OF STOCK</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('productModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Product</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Shop & Banner Settings</h2>
+        <button class="close-btn" onclick="closeModal('settingsModal')">&times;</button>
+      </div>
+      <form onsubmit="saveSettings(event)">
+        <div class="modal-body">
+          <div class="form-group" style="background:#eff6ff; padding:10px; border-radius:10px; border:1px solid #93c5fd;">
+            <label style="color:#04153d;">IMK Banner / Logo (Original Full HD)</label>
+            <div class="img-preview-box" style="height:110px; background:#04153d;" id="logoPreviewBox"><span style="color:#cbd5e1;font-size:0.8rem;">No banner selected</span></div>
+            <div id="logoQualityNote" style="font-size:0.76rem; font-weight:700; margin-bottom:6px; color:#334155;"></div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;">
+              <button type="button" class="btn btn-primary btn-sm" style="flex:1;" onclick="useBuiltInHDBanner()">✨ Use Built-in HD IMK Banner (1600px)</button>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <input type="file" id="logoInput" accept="image/*" onchange="handleImageUpload(event, 'logo')" />
+              <button type="button" class="btn btn-danger btn-sm" onclick="removeLogo()">Remove</button>
+            </div>
+          </div>
+          <div class="form-group"><label>Distribution Name *</label><input type="text" id="setBizName" required /></div>
+          <div class="form-group"><label>Address</label><input type="text" id="setCity" /></div>
+          <div class="form-group"><label>Phone / WhatsApp Numbers</label><input type="text" id="setPhone" /></div>
+          <div class="form-row">
+            <div class="form-group"><label>Currency Label</label><input type="text" id="setCurrency" /></div>
+            <div class="form-group">
+              <label>Theme Color</label>
+              <select id="setThemeColor">
+                <option value="#04153d">IMK Deep Navy Blue</option>
+                <option value="#0f3478">Royal Blue</option>
+                <option value="#0f766e">Emerald Green</option>
+                <option value="#b91c1c">Crimson Red</option>
+                <option value="#1e293b">Dark Charcoal</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group"><label>PDF Offer Headline</label><input type="text" id="setOfferTitle" /></div>
+          <div class="form-group"><label>PDF Footer Note</label><input type="text" id="setFooter" /></div>
+          <hr style="border:none; border-top:1px solid #e2e8f0; margin:4px 0;">
+          <div class="form-group">
+            <label>Backup & Data Management</label>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="exportBackup()">⬇️ Backup Data</button>
+              <label class="btn btn-secondary btn-sm" style="cursor:pointer; margin:0;">⬆️ Restore Backup<input type="file" accept=".json" style="display:none;" onchange="importBackup(event)" /></label>
+              <button type="button" class="btn btn-danger btn-sm" onclick="clearAllProducts()">🗑️ Clear All</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('settingsModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Settings</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const DB_NAME = 'IMKCatalogueDB';
+    const DB_VERSION = 1;
+    let db = null;
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+          const d = e.target.result;
+          if (!d.objectStoreNames.contains('products')) d.createObjectStore('products', { keyPath: 'id' });
+          if (!d.objectStoreNames.contains('settings')) d.createObjectStore('settings', { keyPath: 'key' });
+        };
+        req.onsuccess = () => { db = req.result; resolve(db); };
+        req.onerror = () => reject(req.error);
+      });
+    }
+    function dbGetAll(s) { return new Promise((res, rej) => { const r = db.transaction(s, 'readonly').objectStore(s).getAll(); r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error); }); }
+    function dbPut(s, o) { return new Promise((res, rej) => { const r = db.transaction(s, 'readwrite').objectStore(s).put(o); r.onsuccess = () => res(); r.onerror = () => rej(r.error); }); }
+    function dbDelete(s, k) { return new Promise((res, rej) => { const r = db.transaction(s, 'readwrite').objectStore(s).delete(k); r.onsuccess = () => res(); r.onerror = () => rej(r.error); }); }
+    function dbClear(s) { return new Promise((res, rej) => { const r = db.transaction(s, 'readwrite').objectStore(s).clear(); r.onsuccess = () => res(); r.onerror = () => rej(r.error); }); }
+
+    let products = [], currentFilteredList = [], currentViewIndex = 0;
+    let isCustomerMode = true, isSingleCol = false;
+    let tempProductImage = '', tempLogoImage = '';
+
+    let settings = {
+      key: 'appSettings',
+      bizName: 'IMK ENTERPRISES',
+      city: 'Shaheenabad Gujranwala Pakistan',
+      phone: '03015140572 / 03030930726 / 03016460454',
+      currency: 'Rs.',
+      themeColor: '#04153d',
+      offerTitle: 'WHOLESALE CATALOGUE',
+      footerNote: 'IMK ENTERPRISES • Shaheenabad Gujranwala • Order on WhatsApp',
+      logo: '',
+      pdfPerPage: 4
+    };
+
+    function sortProductsList() {
+      products.sort((a, b) => {
+        const oa = a.sortOrder !== undefined ? Number(a.sortOrder) : (a.createdAt || 0);
+        const ob = b.sortOrder !== undefined ? Number(b.sortOrder) : (b.createdAt || 0);
+        return oa - ob;
+      });
+    }
+
+    function makeSampleImage(bgColor, title, sub) {
+      const c = document.createElement('canvas'); c.width = 400; c.height = 400;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 400, 400);
+      ctx.fillStyle = bgColor; ctx.beginPath(); ctx.roundRect(40, 30, 320, 340, 24); ctx.fill();
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 38px Arial'; ctx.textAlign = 'center';
+      ctx.fillText(title, 200, 190); ctx.font = '24px Arial'; ctx.fillText(sub, 200, 238);
+      return c.toDataURL('image/jpeg', 0.85);
+    }
+
+    // Crisp 1600x680 HD Vector-Drawn IMK Banner
+    function useBuiltInHDBanner() {
+      const W = 1600, H = 680;
+      const c = document.createElement('canvas'); c.width = W; c.height = H;
+      const ctx = c.getContext('2d');
+
+      // Deep futuristic navy-blue gradient
+      const bg = ctx.createRadialGradient(W/2, H*0.42, 40, W/2, H*0.5, W*0.65);
+      bg.addColorStop(0, '#0ea5e9');
+      bg.addColorStop(0.32, '#1d4ed8');
+      bg.addColorStop(0.7, '#061a4d');
+      bg.addColorStop(1, '#020b24');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+      // Glowing wireframe globe rings
+      ctx.strokeStyle = 'rgba(125, 211, 252, 0.28)';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(W/2, H*0.42, 275, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(W/2, H*0.42, 275, 110, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(W/2, H*0.42, 135, 275, 0, 0, Math.PI * 2); ctx.stroke();
+
+      // Central metallic dark card
+      ctx.save();
+      ctx.shadowColor = 'rgba(56, 189, 248, 0.75)';
+      ctx.shadowBlur = 45;
+      const cardGrad = ctx.createLinearGradient(470, 110, 1130, 580);
+      cardGrad.addColorStop(0, '#0b2559');
+      cardGrad.addColorStop(0.5, '#071739');
+      cardGrad.addColorStop(1, '#0d2e6e');
+      ctx.fillStyle = cardGrad;
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.roundRect(470, 105, 660, 470, 26); ctx.fill(); ctx.stroke();
+      ctx.restore();
+
+      // Globe emblem above IMK
+      const gx = W/2, gy = 215, gr = 74;
+      const gGrad = ctx.createRadialGradient(gx-20, gy-20, 10, gx, gy, gr);
+      gGrad.addColorStop(0, '#bae6fd'); gGrad.addColorStop(0.6, '#38bdf8'); gGrad.addColorStop(1, '#0369a1');
+      ctx.fillStyle = gGrad; ctx.beginPath(); ctx.arc(gx, gy, gr, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(gx, gy, gr, 28, -0.2, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(gx, gy, 34, gr, 0, 0, Math.PI*2); ctx.stroke();
+
+      // Swooshing arrow around globe
+      ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = 10;
+      ctx.beginPath(); ctx.ellipse(gx, gy+8, 125, 36, -0.25, 0.15, Math.PI*1.15); ctx.stroke();
+
+      // Bold Silver/White IMK text
+      ctx.textAlign = 'center';
+      const txtGrad = ctx.createLinearGradient(0, 310, 0, 415);
+      txtGrad.addColorStop(0, '#ffffff'); txtGrad.addColorStop(1, '#cbd5e1');
+      ctx.fillStyle = txtGrad;
+      ctx.font = '900 132px Arial';
+      ctx.fillText('IMK', W/2, 410);
+
+      // ENTERPRISES
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '700 44px Arial';
+      ctx.fillText('E N T E R P R I S E S', W/2, 468);
+
+      // Gold divider + DRIVEN TO GROW
+      ctx.fillStyle = '#facc15';
+      ctx.fillRect(W/2 - 170, 492, 340, 4);
+      ctx.fillStyle = '#fef08a';
+      ctx.font = '700 28px Arial';
+      ctx.fillText('DRIVEN TO GROW.', W/2, 538);
+
+      // Side slogans
+      ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff'; ctx.font = '900 48px Arial';
+      ctx.fillText('DRIVEN TO', 55, 165);
+      ctx.fillStyle = '#38bdf8'; ctx.font = '900 72px Arial';
+      ctx.fillText('GROW', 55, 240);
+
+      ctx.textAlign = 'right'; ctx.fillStyle = '#e0f2fe'; ctx.font = '900 38px Arial';
+      ctx.fillText('STRONGER', W - 55, 145);
+      ctx.fillText('TOGETHER', W - 55, 192);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText('BRIGHTER', W - 55, 239);
+      ctx.fillText('TOMORROW', W - 55, 286);
+
+      // Bottom logistics floor bar
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.fillRect(0, H - 56, W, 56);
+      ctx.textAlign = 'center'; ctx.fillStyle = '#bae6fd'; ctx.font = '700 26px Arial';
+      ctx.fillText('FMCG WHOLESALE DISTRIBUTION  •  GUJRANWALA  •  PAKISTAN', W/2, H - 20);
+
+      const url = c.toDataURL('image/png');
+      tempLogoImage = url;
+      document.getElementById('logoPreviewBox').innerHTML = `<img src="${url}" />`;
+      updateLogoQualityNote(W, H);
+      showToast('HD Banner ready! Tap "Save Settings" below.');
+    }
+
+    function getSampleProducts() {
+      const now = Date.now();
+      return [
+        { id:'sample-1', name:'Tapal Danedar Tea 900g', price:1580, oldPrice:1720, unit:'1 Pack (900g)', category:'Tea & Beverages', badge:'HOT OFFER', included:true, sortOrder:1, createdAt:now, image:makeSampleImage('#b91c1c','DANEDAR','900g Pack') },
+        { id:'sample-2', name:'Dalda Cooking Oil 1L x 12', price:6180, oldPrice:6480, unit:'1 Carton (12 Pouches)', category:'Cooking Oil & Ghee', badge:'WHOLESALE', included:true, sortOrder:2, createdAt:now+1, image:makeSampleImage('#d97706','COOKING OIL','1L x 12 Ctn') }
+      ];
+    }
+
+    async function init() {
+      await openDB();
+      const savedSettings = await dbGetAll('settings');
+      if (savedSettings.length > 0) settings = { ...settings, ...savedSettings[0] };
+      else await dbPut('settings', settings);
+
+      const savedProducts = await dbGetAll('products');
+      if (savedProducts.length === 0 && !localStorage.getItem('imk_seeded')) {
+        const samples = getSampleProducts();
+        for (const p of samples) await dbPut('products', p);
+        localStorage.setItem('imk_seeded', '1');
+        products = samples;
+      } else {
+        products = savedProducts;
+      }
+
+      sortProductsList();
+      let changed = false;
+      for (let i = 0; i < products.length; i++) {
+        if (products[i].sortOrder !== i + 1) { products[i].sortOrder = i + 1; changed = true; }
+      }
+      if (changed) { for (const p of products) await dbPut('products', p); }
+
+      applySettingsUI();
+      populateCategoryFilter();
+      switchTab('customer');
+      initDragAndDrop();
+    }
+
+    function switchTab(mode) {
+      isCustomerMode = (mode === 'customer');
+      document.body.classList.toggle('customer-mode', isCustomerMode);
+      document.getElementById('tabCatalogue').classList.toggle('active', isCustomerMode);
+      document.getElementById('tabManage').classList.toggle('active', !isCustomerMode);
+      if (isCustomerMode) {
+        isSingleCol = false;
+        document.getElementById('productGrid').classList.remove('single-col');
+        document.getElementById('btnGridToggle').textContent = '📱 1-Col Big';
+      }
+      renderProducts();
+    }
+
+    function escapeHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function formatPrice(v) { const n = Number(v); return isNaN(n) ? v : n.toLocaleString('en-PK'); }
+    function calcDiscountPercent(tp, sale) { const t = Number(tp), s = Number(sale); return (!t || t <= 0 || isNaN(s) || s >= t) ? 0 : Math.round(((t - s) / t) * 100); }
+    function showToast(msg, dur = 2600) {
+      const t = document.getElementById('toast'); t.textContent = msg; t.style.display = 'block';
+      clearTimeout(t._timer); t._timer = setTimeout(() => { t.style.display = 'none'; }, dur);
+    }
+
+    function checkLogoResolution(dataUrl, callback) {
+      if (!dataUrl) { callback(0, 0); return; }
+      const img = new Image();
+      img.onload = () => callback(img.width, img.height);
+      img.onerror = () => callback(0, 0);
+      img.src = dataUrl;
+    }
+
+    function applySettingsUI() {
+      const theme = settings.themeColor || '#04153d';
+      document.documentElement.style.setProperty('--primary', theme);
+      const m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', theme);
+      document.getElementById('headerBizName').textContent = settings.bizName;
+      document.getElementById('headerBizSub').textContent = [settings.city, settings.phone].filter(Boolean).join(' | ');
+      const logoEl = document.getElementById('headerLogo');
+      const quickBtn = document.getElementById('btnUploadBannerQuick');
+      if (settings.logo) {
+        logoEl.src = settings.logo; logoEl.style.display = 'block';
+        checkLogoResolution(settings.logo, (w) => {
+          if (w > 0 && w < 700) {
+            quickBtn.textContent = '⚠️ Banner Blur — Fix Karein';
+            quickBtn.className = 'btn btn-danger btn-sm';
+          } else {
+            quickBtn.textContent = '🖼️ HD Banner Set';
+            quickBtn.className = 'btn btn-secondary btn-sm';
+          }
+        });
+      } else {
+        logoEl.style.display = 'none';
+        quickBtn.textContent = '🖼️ Upload IMK Banner';
+        quickBtn.className = 'btn btn-gold btn-sm';
+      }
+      document.getElementById('pdfLayoutSelect').value = String(settings.pdfPerPage || 4);
+      document.querySelectorAll('.currencyLabel').forEach(el => el.textContent = settings.currency || 'Rs.');
+    }
+
+    function populateCategoryFilter() {
+      const sel = document.getElementById('categoryFilter'), cur = sel.value;
+      const cats = [...new Set(products.map(p => (p.category || '').trim()).filter(Boolean))].sort();
+      const opts = '<option value="ALL">All Categories</option>' + cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      sel.innerHTML = opts; document.getElementById('bulkCategory').innerHTML = opts;
+      if (cats.includes(cur)) sel.value = cur;
+    }
+
+    function toggleAppGrid() {
+      isSingleCol = !isSingleCol;
+      document.getElementById('productGrid').classList.toggle('single-col', isSingleCol);
+      document.getElementById('btnGridToggle').textContent = isSingleCol ? '⊞ 4-Item Grid' : '📱 1-Col Big';
+    }
+
+    function renderProducts() {
+      sortProductsList();
+      const grid = document.getElementById('productGrid');
+      const q = document.getElementById('searchInput').value.trim().toLowerCase();
+      const cat = document.getElementById('categoryFilter').value;
+
+      currentFilteredList = products.filter(p => {
+        if (isCustomerMode && p.included === false) return false;
+        return (!q || (p.name + ' ' + p.unit + ' ' + p.category).toLowerCase().includes(q)) && (cat === 'ALL' || (p.category || '') === cat);
+      });
+
+      document.getElementById('selectedCountText').textContent = `${products.filter(p => p.included !== false).length} of ${products.length}`;
+
+      if (currentFilteredList.length === 0) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p style="font-size:1.05rem;font-weight:600;margin-bottom:8px;">No products found</p><p style="font-size:0.88rem;">Open <strong>"✏️ Edit / Add & PDF"</strong> tab above to add products.</p></div>`;
+        return;
+      }
+
+      const cur = escapeHtml(settings.currency || 'Rs.');
+      grid.innerHTML = currentFilteredList.map((p, idx) => {
+        const isInc = p.included !== false, pos = products.findIndex(x => x.id === p.id) + 1;
+        let bCls = ''; if (p.badge === 'NEW') bCls = 'new'; if (p.badge === 'OUT OF STOCK') bCls = 'oos';
+        const tpVal = p.oldPrice ? Number(p.oldPrice) : 0, saleVal = Number(p.price), offPct = calcDiscountPercent(tpVal, saleVal);
+
+        return `
+          <div class="product-card ${isInc ? '' : 'excluded'}" data-id="${p.id}" data-pos="${pos}">
+            <div class="card-top-controls">
+              <input type="checkbox" class="card-check admin-only" ${isInc ? 'checked' : ''} onchange="toggleInclude('${p.id}')" />
+              ${p.badge ? `<span class="card-badge ${bCls}">${escapeHtml(p.badge)}</span>` : '<span></span>'}
+            </div>
+            <div class="card-clickable" onclick="openProductViewer(${idx})">
+              <div class="card-img-wrap">${p.image ? `<img src="${p.image}" alt="${escapeHtml(p.name)}" />` : `<span style="color:#cbd5e1;font-size:0.8rem;">No Image</span>`}</div>
+              <div class="card-body">
+                ${p.category ? `<div class="card-cat">${escapeHtml(p.category)}</div>` : ''}
+                <div class="card-title">${escapeHtml(p.name)}</div>
+                ${p.unit ? `<div class="card-unit">${escapeHtml(p.unit)}</div>` : ''}
+                <div class="card-price-box">
+                  ${tpVal > 0 ? `<div class="card-tp-row"><span>T.P: <span class="${tpVal > saleVal ? 'card-tp-strike' : ''}">${cur} ${formatPrice(tpVal)}</span></span>${offPct > 0 ? `<span class="card-off-pill">${offPct}% OFF</span>` : ''}</div>` : ''}
+                  <div class="card-sale-row">Sale: ${cur} ${formatPrice(saleVal)}</div>
+                </div>
+              </div>
+            </div>
+            <div class="card-order-bar admin-only">
+              <div class="drag-handle" data-id="${p.id}"><span>⠿ Drag</span></div>
+              <button class="num-jump-btn" onclick="jumpProductOrder('${p.id}')">#${pos}</button>
+              <div class="order-btns">
+                <button class="btn" onclick="moveProduct('${p.id}',-1)" ${pos === 1 ? 'disabled' : ''}>⬆️</button>
+                <button class="btn" onclick="moveProduct('${p.id}',1)" ${pos === products.length ? 'disabled' : ''}>⬇️</button>
+              </div>
+            </div>
+            <div class="card-actions admin-only">
+              <button class="btn btn-secondary btn-sm" onclick="openProductViewer(${idx})">🔍</button>
+              <button class="btn btn-secondary btn-sm" onclick="openProductModal('${p.id}')">✏️ Edit</button>
+              <button class="btn btn-secondary btn-sm" onclick="duplicateProduct('${p.id}')">📋</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">🗑️</button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function initDragAndDrop() {
+      const grid = document.getElementById('productGrid'), ghost = document.getElementById('dragGhost');
+      let draggingId = null, draggedCard = null, lastTargetId = null, activePtr = null, scrollInt = null;
+      const clearScr = () => { if (scrollInt) { clearInterval(scrollInt); scrollInt = null; } };
+
+      grid.addEventListener('pointerdown', (e) => {
+        const handle = e.target.closest('.drag-handle');
+        if (!handle || isCustomerMode) return;
+        if (document.getElementById('searchInput').value.trim() || document.getElementById('categoryFilter').value !== 'ALL') {
+          showToast('Clear search & category filter first to reorder!'); return;
+        }
+        e.preventDefault();
+        draggingId = handle.dataset.id; activePtr = e.pointerId;
+        draggedCard = handle.closest('.product-card'); if (!draggedCard) return;
+        draggedCard.classList.add('dragging');
+        const p = products.find(x => x.id === draggingId);
+        ghost.textContent = `Moving #${draggedCard.dataset.pos}: ${(p ? p.name : '').slice(0, 20)}`;
+        ghost.style.left = e.clientX + 'px'; ghost.style.top = e.clientY + 'px'; ghost.style.display = 'block';
+      });
+
+      window.addEventListener('pointermove', (e) => {
+        if (!draggingId || e.pointerId !== activePtr) return;
+        e.preventDefault();
+        ghost.style.left = e.clientX + 'px'; ghost.style.top = e.clientY + 'px';
+        clearScr();
+        if (e.clientY < 110) scrollInt = setInterval(() => window.scrollBy(0, -14), 25);
+        else if (e.clientY > window.innerHeight - 90) scrollInt = setInterval(() => window.scrollBy(0, 14), 25);
+
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const target = el ? el.closest('.product-card') : null;
+        document.querySelectorAll('.product-card.drag-over').forEach(c => c.classList.remove('drag-over'));
+        if (target && target.dataset.id !== draggingId) {
+          target.classList.add('drag-over'); lastTargetId = target.dataset.id;
+          ghost.textContent = `Move #${draggedCard.dataset.pos} ➡️ #${target.dataset.pos}`;
+        } else {
+          lastTargetId = null;
+          const p = products.find(x => x.id === draggingId);
+          ghost.textContent = `Moving #${draggedCard.dataset.pos}: ${(p ? p.name : '').slice(0, 20)}`;
+        }
+      }, { passive: false });
+
+      async function finishDrag(e) {
+        if (!draggingId || e.pointerId !== activePtr) return;
+        clearScr(); ghost.style.display = 'none';
+        if (draggedCard) draggedCard.classList.remove('dragging');
+        document.querySelectorAll('.product-card.drag-over').forEach(c => c.classList.remove('drag-over'));
+        const sId = draggingId, dId = lastTargetId;
+        draggingId = draggedCard = lastTargetId = activePtr = null;
+        if (dId && dId !== sId) await reorderProductToTarget(sId, dId);
+      }
+      window.addEventListener('pointerup', finishDrag);
+      window.addEventListener('pointercancel', finishDrag);
+    }
+
+    async function saveNewOrder() {
+      for (let i = 0; i < products.length; i++) { products[i].sortOrder = i + 1; await dbPut('products', products[i]); }
+      renderProducts();
+    }
+    async function reorderProductToTarget(srcId, dstId) {
+      sortProductsList();
+      const from = products.findIndex(p => p.id === srcId), to = products.findIndex(p => p.id === dstId);
+      if (from < 0 || to < 0 || from === to) return;
+      const [moved] = products.splice(from, 1); products.splice(to, 0, moved);
+      await saveNewOrder(); showToast(`Moved to #${to + 1}!`);
+    }
+    async function jumpProductOrder(id) {
+      sortProductsList();
+      const from = products.findIndex(p => p.id === id); if (from < 0) return;
+      const inp = prompt(`Move "${products[from].name}" to which number? (1 to ${products.length})`, String(from + 1));
+      if (!inp) return;
+      let num = parseInt(inp, 10); if (isNaN(num)) return;
+      num = Math.max(1, Math.min(products.length, num));
+      const to = num - 1; if (to === from) return;
+      const [moved] = products.splice(from, 1); products.splice(to, 0, moved);
+      await saveNewOrder(); showToast(`Moved to #${num}!`);
+    }
+    async function moveProduct(id, dir) {
+      sortProductsList();
+      const idx = products.findIndex(p => p.id === id), tIdx = idx + dir;
+      if (idx < 0 || tIdx < 0 || tIdx >= products.length) return;
+      [products[idx], products[tIdx]] = [products[tIdx], products[idx]];
+      await saveNewOrder();
+    }
+
+    function openProductViewer(idx) {
+      if (currentFilteredList.length === 0) return;
+      currentViewIndex = (idx + currentFilteredList.length) % currentFilteredList.length;
+      const p = currentFilteredList[currentViewIndex], cur = escapeHtml(settings.currency || 'Rs.');
+      document.getElementById('viewHeaderBiz').textContent = `${settings.bizName} (${currentViewIndex + 1}/${currentFilteredList.length})`;
+      const imgEl = document.getElementById('viewImg'); imgEl.src = p.image || ''; imgEl.style.display = p.image ? 'block' : 'none';
+      const bEl = document.getElementById('viewBadge');
+      if (p.badge) { bEl.textContent = p.badge; bEl.style.display = 'inline-block'; } else bEl.style.display = 'none';
+      document.getElementById('viewMeta').textContent = [p.category, p.unit].filter(Boolean).join(' • ');
+      document.getElementById('viewTitle').textContent = p.name;
+      const tpVal = p.oldPrice ? Number(p.oldPrice) : 0, saleVal = Number(p.price), offPct = calcDiscountPercent(tpVal, saleVal);
+      document.getElementById('viewPriceCard').innerHTML = `
+        ${tpVal > 0 ? `<div class="viewer-tp"><span>T.P: <span class="${tpVal > saleVal ? 'card-tp-strike' : ''}">${cur} ${formatPrice(tpVal)}</span></span>${offPct > 0 ? `<span class="card-off-pill" style="font-size:0.85rem;padding:3px 8px;">${offPct}% OFF</span>` : ''}</div>` : ''}
+        <div class="viewer-sale">Sale Price: ${cur} ${formatPrice(saleVal)}</div>`;
+      document.getElementById('productViewModal').classList.add('open');
+    }
+    function stepViewer(dir) { openProductViewer(currentViewIndex + dir); }
+    function shareSingleProductWhatsApp() {
+      const p = currentFilteredList[currentViewIndex]; if (!p) return;
+      const cur = settings.currency || 'Rs.';
+      let msg = `*${settings.bizName}*\n📦 *${p.name}*\n`;
+      if (p.unit) msg += `Pack: ${p.unit}\n`;
+      if (p.oldPrice && Number(p.oldPrice) > Number(p.price)) msg += `T.P: ~${cur} ${formatPrice(p.oldPrice)}~\n`;
+      msg += `🔥 *Sale Price: ${cur} ${formatPrice(p.price)}*\n\n📞 Order WhatsApp: ${settings.phone}`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
+    function trimWhiteBorders(src) {
+      const w = src.width, h = src.height, ctx = src.getContext('2d'), data = ctx.getImageData(0, 0, w, h).data;
+      let minX = w, minY = h, maxX = 0, maxY = 0;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const i = (y * w + x) * 4;
+          if (data[i] < 242 || data[i+1] < 242 || data[i+2] < 242) {
+            if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+          }
+        }
+      }
+      if (maxX <= minX || maxY <= minY) return src;
+      const cw = maxX - minX + 1, ch = maxY - minY + 1;
+      if (cw < 20 || ch < 20) return src;
+      const pad = Math.round(Math.max(cw, ch) * 0.03), out = document.createElement('canvas');
+      out.width = cw + pad * 2; out.height = ch + pad * 2;
+      const octx = out.getContext('2d'); octx.fillStyle = '#ffffff'; octx.fillRect(0, 0, out.width, out.height);
+      octx.drawImage(src, minX, minY, cw, ch, pad, pad, cw, ch);
+      return out;
+    }
+
+    function updateLogoQualityNote(w, h) {
+      const note = document.getElementById('logoQualityNote');
+      if (!w) { note.textContent = ''; return; }
+      if (w < 700) {
+        note.style.color = '#dc2626';
+        note.textContent = `⚠️ Ye photo choti hai (${w}×${h} px) — is liye PDF mein blur aati hai! Upar "Use Built-in HD IMK Banner" dabayein ya HD photo lagayein.`;
+      } else {
+        note.style.color = '#16a34a';
+        note.textContent = `✅ Full HD Quality Ready: ${w}×${h} px`;
+      }
+    }
+
+    function handleImageUpload(event, target) {
+      const file = event.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const rawUrl = e.target.result;
+        // For banner/logo: keep 100% original raw JPEG/PNG if under 3MB (zero canvas blur!)
+        if (target === 'logo' && (file.type === 'image/jpeg' || file.type === 'image/png') && file.size <= 3 * 1024 * 1024) {
+          tempLogoImage = rawUrl;
+          document.getElementById('logoPreviewBox').innerHTML = `<img src="${rawUrl}" />`;
+          checkLogoResolution(rawUrl, updateLogoQualityNote);
+          return;
+        }
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = target === 'logo' ? 2200 : 750, q = target === 'logo' ? 0.96 : 0.86;
+          let w = img.width, h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; } else { w = Math.round(w * maxDim / h); h = maxDim; }
+          }
+          let c = document.createElement('canvas'); c.width = w; c.height = h;
+          const ctx = c.getContext('2d');
+          ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+          ctx.fillStyle = target === 'logo' ? '#04153d' : '#ffffff';
+          ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
+          if (target === 'product') c = trimWhiteBorders(c);
+          const url = c.toDataURL('image/jpeg', q);
+          if (target === 'product') {
+            tempProductImage = url;
+            document.getElementById('prodImgPreviewBox').innerHTML = `<img src="${url}" />`;
+          } else {
+            tempLogoImage = url;
+            document.getElementById('logoPreviewBox').innerHTML = `<img src="${url}" />`;
+            updateLogoQualityNote(c.width, c.height);
+          }
+        };
+        img.src = rawUrl;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function onTpOrDiscountInput() {
+      const tp = parseFloat(document.getElementById('prodTpPrice').value);
+      const pctRaw = document.getElementById('prodDiscountPct').value;
+      const saleInput = document.getElementById('prodSalePrice'), hint = document.getElementById('calcHintText');
+      if (!isNaN(tp) && tp > 0) {
+        const pct = pctRaw === '' ? 0 : parseFloat(pctRaw);
+        if (!isNaN(pct) && pct >= 0 && pct <= 100) {
+          const calc = Math.round(tp * (1 - pct / 100)); saleInput.value = calc;
+          hint.textContent = pct > 0 ? `✅ T.P ${formatPrice(tp)} - ${pct}% = Sale Price ${formatPrice(calc)}` : `💡 Discount % likhein ya direct Sale Price likh dein.`;
+        }
+      }
+    }
+
+    function onSalePriceInput() {
+      const tp = parseFloat(document.getElementById('prodTpPrice').value), sale = parseFloat(document.getElementById('prodSalePrice').value);
+      const pctInput = document.getElementById('prodDiscountPct'), hint = document.getElementById('calcHintText');
+      if (!isNaN(tp) && tp > 0 && !isNaN(sale) && sale <= tp && sale >= 0) {
+        const pct = ((tp - sale) / tp) * 100; pctInput.value = pct > 0 ? Number(pct.toFixed(1)) : 0;
+        hint.textContent = pct > 0 ? `✅ ${Number(pct.toFixed(1))}% discount (Bachat: ${formatPrice(tp - sale)})` : `💡 T.P aur Sale Price barabar hain.`;
+      } else pctInput.value = '';
+    }
+
+    function openProductModal(id = null) {
+      document.getElementById('productForm').reset(); document.getElementById('prodId').value = '';
+      document.getElementById('calcHintText').textContent = '💡 T.P aur Discount % likhein, Sale Price khud adjust ho jayegi!';
+      tempProductImage = ''; document.getElementById('prodImgPreviewBox').innerHTML = '<span style="color:#94a3b8;font-size:0.85rem;">No photo selected</span>';
+      if (id) {
+        const p = products.find(x => x.id === id); if (!p) return;
+        document.getElementById('productModalTitle').textContent = 'Edit Product';
+        document.getElementById('prodId').value = p.id; document.getElementById('prodName').value = p.name;
+        document.getElementById('prodTpPrice').value = p.oldPrice || ''; document.getElementById('prodSalePrice').value = p.price;
+        document.getElementById('prodDiscountPct').value = (p.oldPrice && Number(p.oldPrice) > Number(p.price)) ? Number((((Number(p.oldPrice) - Number(p.price)) / Number(p.oldPrice)) * 100).toFixed(1)) : '';
+        document.getElementById('prodUnit').value = p.unit || ''; document.getElementById('prodCategory').value = p.category || ''; document.getElementById('prodBadge').value = p.badge || '';
+        if (p.image) { tempProductImage = p.image; document.getElementById('prodImgPreviewBox').innerHTML = `<img src="${p.image}" />`; }
+      } else document.getElementById('productModalTitle').textContent = 'Add New Product';
+      document.getElementById('productModal').classList.add('open');
+    }
+
+    async function saveProduct(e) {
+      e.preventDefault();
+      const id = document.getElementById('prodId').value || ('p-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
+      const existing = products.find(x => x.id === id);
+      const tpVal = document.getElementById('prodTpPrice').value ? parseFloat(document.getElementById('prodTpPrice').value) : '';
+      const saleVal = parseFloat(document.getElementById('prodSalePrice').value);
+      const maxOrder = products.length > 0 ? Math.max(...products.map(x => Number(x.sortOrder) || 0)) : 0;
+
+      const item = {
+        id, name: document.getElementById('prodName').value.trim(), price: saleVal, oldPrice: tpVal,
+        unit: document.getElementById('prodUnit').value.trim(), category: document.getElementById('prodCategory').value.trim(),
+        badge: document.getElementById('prodBadge').value, image: tempProductImage,
+        included: existing ? existing.included !== false : true,
+        sortOrder: existing && existing.sortOrder !== undefined ? existing.sortOrder : (maxOrder + 1),
+        createdAt: existing ? existing.createdAt : Date.now()
+      };
+      await dbPut('products', item);
+      const idx = products.findIndex(x => x.id === id);
+      if (idx >= 0) products[idx] = item; else products.push(item);
+      closeModal('productModal'); populateCategoryFilter(); renderProducts(); showToast('Saved at #' + item.sortOrder + '!');
+    }
+
+    async function duplicateProduct(id) {
+      const p = products.find(x => x.id === id); if (!p) return;
+      const maxOrder = products.length > 0 ? Math.max(...products.map(x => Number(x.sortOrder) || 0)) : 0;
+      const copy = { ...p, id: 'p-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), name: p.name + ' (Copy)', sortOrder: maxOrder + 1, createdAt: Date.now() };
+      await dbPut('products', copy); products.push(copy); renderProducts(); showToast('Copied!');
+    }
+
+    async function deleteProduct(id) {
+      if (!confirm('Delete this product?')) return;
+      await dbDelete('products', id); products = products.filter(p => p.id !== id);
+      sortProductsList(); await saveNewOrder(); populateCategoryFilter(); showToast('Deleted.');
+    }
+
+    async function toggleInclude(id) { const p = products.find(x => x.id === id); if (!p) return; p.included = p.included === false ? true : false; await dbPut('products', p); renderProducts(); }
+    async function toggleSelectAll() { const next = !products.every(p => p.included !== false); for (const p of products) { p.included = next; await dbPut('products', p); } renderProducts(); }
+
+    function openBulkModal() { document.getElementById('bulkModal').classList.add('open'); }
+    async function applyBulkPercentage(e) {
+      e.preventDefault();
+      const cat = document.getElementById('bulkCategory').value, act = document.getElementById('bulkAction').value, pct = parseFloat(document.getElementById('bulkPercent').value);
+      if (isNaN(pct)) return;
+      let cnt = 0;
+      for (const p of products) {
+        if (cat !== 'ALL' && (p.category || '') !== cat) continue;
+        if (act === 'discount_tp') { const tp = Number(p.oldPrice) || Number(p.price); if (tp > 0) { p.oldPrice = tp; p.price = Math.max(0, Math.round(tp * (1 - pct / 100))); cnt++; } }
+        else if (act === 'change_sale') { p.price = Math.max(0, Math.round(Number(p.price) * (1 + pct / 100))); cnt++; }
+        else if (act === 'change_tp') { if (p.oldPrice) p.oldPrice = Math.max(0, Math.round(Number(p.oldPrice) * (1 + pct / 100))); p.price = Math.max(0, Math.round(Number(p.price) * (1 + pct / 100))); cnt++; }
+        await dbPut('products', p);
+      }
+      closeModal('bulkModal'); renderProducts(); showToast(`Updated ${cnt} products!`);
+    }
+
+    function openSettingsModal() {
+      document.getElementById('setBizName').value = settings.bizName;
+      document.getElementById('setCity').value = settings.city || '';
+      document.getElementById('setPhone').value = settings.phone || '';
+      document.getElementById('setCurrency').value = settings.currency || 'Rs.';
+      document.getElementById('setThemeColor').value = settings.themeColor || '#04153d';
+      document.getElementById('setOfferTitle').value = settings.offerTitle || 'WHOLESALE CATALOGUE';
+      document.getElementById('setFooter').value = settings.footerNote || '';
+      tempLogoImage = settings.logo || '';
+      document.getElementById('logoPreviewBox').innerHTML = tempLogoImage ? `<img src="${tempLogoImage}" />` : '<span style="color:#cbd5e1;font-size:0.8rem;">No banner selected</span>';
+      checkLogoResolution(tempLogoImage, updateLogoQualityNote);
+      document.getElementById('settingsModal').classList.add('open');
+    }
+    function removeLogo() { tempLogoImage = ''; document.getElementById('logoPreviewBox').innerHTML = '<span style="color:#cbd5e1;font-size:0.8rem;">No banner uploaded</span>'; document.getElementById('logoInput').value = ''; updateLogoQualityNote(0, 0); }
+
+    async function saveSettings(e) {
+      e.preventDefault();
+      settings.bizName = document.getElementById('setBizName').value.trim();
+      settings.city = document.getElementById('setCity').value.trim();
+      settings.phone = document.getElementById('setPhone').value.trim();
+      settings.currency = document.getElementById('setCurrency').value.trim() || 'Rs.';
+      settings.themeColor = document.getElementById('setThemeColor').value;
+      settings.offerTitle = document.getElementById('setOfferTitle').value.trim() || 'WHOLESALE CATALOGUE';
+      settings.footerNote = document.getElementById('setFooter').value.trim();
+      settings.logo = tempLogoImage;
+      await dbPut('settings', settings); applySettingsUI(); renderProducts(); closeModal('settingsModal'); showToast('Banner & settings saved!');
+    }
+
+    async function saveLayoutPref() { settings.pdfPerPage = parseInt(document.getElementById('pdfLayoutSelect').value, 10) || 4; await dbPut('settings', settings); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+    async function clearAllProducts() {
+      if (!confirm('Delete ALL products?')) return;
+      await dbClear('products'); products = []; localStorage.setItem('imk_seeded', '1');
+      populateCategoryFilter(); renderProducts(); closeModal('settingsModal'); showToast('Cleared.');
+    }
+
+    function exportBackup() {
+      sortProductsList();
+      const blob = new Blob([JSON.stringify({ settings, products, exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob), a = document.createElement('a');
+      a.href = url; a.download = `IMK-Enterprises-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click();
+      URL.revokeObjectURL(url); showToast('Backup downloaded!');
+    }
+    function importBackup(event) {
+      const file = event.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (data.settings) { settings = { ...settings, ...data.settings, key: 'appSettings' }; await dbPut('settings', settings); }
+          if (Array.isArray(data.products)) { await dbClear('products'); for (const p of data.products) await dbPut('products', p); products = data.products; }
+          applySettingsUI(); populateCategoryFilter(); renderProducts(); closeModal('settingsModal'); showToast('Backup restored!');
+        } catch (_) { alert('Invalid backup file.'); }
+      };
+      reader.readAsText(file);
+    }
+
+    function hexToRgb(hex) {
+      const n = parseInt((hex || '#04153d').replace('#', ''), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+
+    async function buildCataloguePDF() {
+      sortProductsList();
+      const selected = products.filter(p => p.included !== false);
+      if (selected.length === 0) { alert('Please select at least 1 product.'); return null; }
+      if (!window.jspdf || !window.jspdf.jsPDF) { window.print(); return null; }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageW = 210, pageH = 297, margin = 6, usableW = pageW - margin * 2;
+      const [r, g, b] = hexToRgb(settings.themeColor);
+      const cur = settings.currency || 'Rs.';
+
+      const perPage = Number(settings.pdfPerPage) || 4;
+      const cols = perPage === 2 ? 1 : (perPage === 9 ? 3 : 2);
+      const rowsPerPage = (perPage === 4 || perPage === 2) ? 2 : 3;
+      const totalPages = Math.ceil(selected.length / perPage);
+      const gap = cols === 1 ? 6 : (cols === 2 ? 5 : 4);
+      const cardW = (usableW - gap * (cols - 1)) / cols;
+      const todayStr = new Date().toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' });
+      const offerHeading = (settings.offerTitle || 'WHOLESALE CATALOGUE').toUpperCase();
+
+      const logoFmt = (settings.logo && settings.logo.startsWith('data:image/png')) ? 'PNG' : 'JPEG';
+      let hasWideBanner = false;
+      if (settings.logo) {
+        try {
+          const pr = doc.getImageProperties(settings.logo);
+          if (pr.width / pr.height >= 1.35) hasWideBanner = true;
+        } catch (_) {}
+      }
+
+      function drawHeader(pageNum) {
+        if (pageNum === 1) {
+          if (settings.logo && hasWideBanner) {
+            const pr = doc.getImageProperties(settings.logo);
+            const bannerH = Math.min(82, Math.round(pageW * pr.height / pr.width));
+            doc.setFillColor(4, 21, 61);
+            doc.rect(0, 0, pageW, bannerH, 'F');
+
+            const padY = 2;
+            const ratio = Math.min((pageW - 8) / pr.width, (bannerH - padY * 2) / pr.height);
+            const bw = pr.width * ratio, bh = pr.height * ratio;
+            const bx = (pageW - bw) / 2, by = (bannerH - bh) / 2;
+
+            doc.addImage(settings.logo, logoFmt, bx, by, bw, bh);
+            doc.setDrawColor(96, 165, 250);
+            doc.setLineWidth(0.5);
+            doc.rect(bx, by, bw, bh);
+
+            const stripY = bannerH, stripH = 14;
+            doc.setFillColor(r, g, b);
+            doc.rect(0, stripY, pageW, stripH, 'F');
+            doc.setFillColor(250, 204, 21);
+            doc.rect(0, stripY, pageW, 1.1, 'F');
+            doc.rect(0, stripY + stripH - 1.1, pageW, 1.1, 'F');
+
+            doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+            doc.text(`${settings.bizName || 'IMK ENTERPRISES'}  •  ${settings.city || ''}`, margin, stripY + 5.8);
+            doc.setTextColor(253, 224, 71); doc.setFontSize(9);
+            doc.text(`WhatsApp / Call: ${settings.phone || ''}`, margin, stripY + 11);
+            doc.setTextColor(255, 255, 255); doc.setFontSize(8);
+            doc.text(`${offerHeading.slice(0, 22)} • ${todayStr}`, pageW - margin, stripY + 8.5, { align: 'right' });
+            return bannerH + stripH + 4;
+          } else {
+            const h = 44;
+            doc.setFillColor(r, g, b); doc.rect(0, 0, pageW, h, 'F');
+            doc.setFillColor(250, 204, 21); doc.rect(0, h - 1.2, pageW, 1.2, 'F');
+            let tx = margin;
+            if (settings.logo) {
+              try {
+                const pr = doc.getImageProperties(settings.logo), ratio = Math.min(38 / pr.width, 38 / pr.height);
+                const lw = pr.width * ratio, lh = pr.height * ratio, ly = (h - 1.2 - lh) / 2;
+                doc.setFillColor(255, 255, 255); doc.roundedRect(margin - 0.8, ly - 0.8, lw + 1.6, lh + 1.6, 2, 2, 'F');
+                doc.addImage(settings.logo, logoFmt, margin, ly, lw, lh); tx = margin + lw + 5;
+              } catch (_) {}
+            }
+            const rw = pageW - margin - tx;
+            doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(settings.logo ? 18 : 21);
+            doc.text(settings.bizName || 'IMK ENTERPRISES', tx, 12);
+            doc.setTextColor(219, 234, 254); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+            if (settings.city) doc.text(doc.splitTextToSize(settings.city, rw).slice(0, 1), tx, 18.5);
+            if (settings.phone) { doc.setTextColor(253, 224, 71); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.text(doc.splitTextToSize('WhatsApp / Call: ' + settings.phone, rw).slice(0, 2), tx, 25); }
+            doc.setFillColor(255, 255, 255); doc.roundedRect(tx, 33, Math.min(rw, 96), 6.5, 1.5, 1.5, 'F');
+            doc.setTextColor(r, g, b); doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+            doc.text(`${offerHeading.slice(0, 32)}  •  ${todayStr}`, tx + 3, 37.5);
+            return h + 4;
+          }
+        } else {
+          const h = 16;
+          doc.setFillColor(r, g, b); doc.rect(0, 0, pageW, h, 'F');
+          doc.setFillColor(250, 204, 21); doc.rect(0, h - 0.8, pageW, 0.8, 'F');
+          let tx = margin;
+          if (settings.logo) {
+            try {
+              const pr = doc.getImageProperties(settings.logo), ratio = Math.min(26 / pr.width, 13 / pr.height);
+              const lw = pr.width * ratio, lh = pr.height * ratio;
+              doc.addImage(settings.logo, logoFmt, margin, (h - lh) / 2, lw, lh); tx = margin + lw + 4;
+            } catch (_) {}
+          }
+          doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+          doc.text(settings.bizName || 'IMK ENTERPRISES', tx, 7.5);
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(219, 234, 254);
+          doc.text(settings.city || '', tx, 12.5);
+          doc.setTextColor(253, 224, 71); doc.setFont('helvetica', 'bold');
+          doc.text(settings.phone || '', pageW - margin, 10, { align: 'right' });
+          return h + 4;
+        }
+      }
+
+      function drawFooter(pageNum) {
+        doc.setDrawColor(226, 232, 240); doc.line(margin, pageH - 10, pageW - margin, pageH - 10);
+        doc.setTextColor(100, 116, 139); doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+        if (settings.footerNote) doc.text(settings.footerNote.slice(0, 92), margin, pageH - 5);
+        doc.text(`Page ${pageNum} of ${totalPages}`, pageW - margin, pageH - 5, { align: 'right' });
+      }
+
+      let currentStartY = 48;
+      for (let i = 0; i < selected.length; i++) {
+        const idxOnPage = i % perPage, pageNum = Math.floor(i / perPage) + 1;
+        if (idxOnPage === 0) {
+          if (pageNum > 1) doc.addPage();
+          currentStartY = drawHeader(pageNum);
+          drawFooter(pageNum);
+        }
+
+        const availH = (pageH - 12.5) - currentStartY;
+        const cardH = (availH - gap * (rowsPerPage - 1)) / rowsPerPage;
+        const compactP1 = (pageNum === 1 && hasWideBanner && perPage === 4);
+
+        const cfg = perPage === 2
+          ? { nameSize: 21, lineStep: 8.2, unitSize: 12, tpSize: 15.5, saleSize: 24, priceBoxH: 25, imgPad: 2 }
+          : perPage === 4
+            ? (compactP1
+                ? { nameSize: 16.5, lineStep: 6.2, unitSize: 9.5, tpSize: 12.5, saleSize: 19.5, priceBoxH: 20, imgPad: 1.5 }
+                : { nameSize: 19, lineStep: 7.2, unitSize: 10.5, tpSize: 14, saleSize: 22, priceBoxH: 23.5, imgPad: 1.5 })
+            : perPage === 6
+              ? { nameSize: 13.5, lineStep: 5.2, unitSize: 8.5, tpSize: 10, saleSize: 15, priceBoxH: 17, imgPad: 1.5 }
+              : { nameSize: 11, lineStep: 4.3, unitSize: 7.5, tpSize: 8.5, saleSize: 12, priceBoxH: 13.5, imgPad: 1.5 };
+
+        const col = idxOnPage % cols, row = Math.floor(idxOnPage / cols);
+        const x = margin + col * (cardW + gap), y = currentStartY + row * (cardH + gap), p = selected[i];
+
+        doc.setFillColor(255, 255, 255); doc.setDrawColor(148, 163, 184); doc.setLineWidth(0.45);
+        doc.roundedRect(x, y, cardW, cardH, 3, 3, 'FD');
+
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(cfg.nameSize);
+        const nameLines = doc.splitTextToSize(p.name || '', cardW - 6).slice(0, 2);
+        const hasUnit = Boolean(p.unit && p.unit.trim());
+        const nameBlockH = nameLines.length * cfg.lineStep + 3;
+        const unitBlockH = hasUnit ? (cfg.unitSize * 0.45 + 2) : 0;
+        const textBlockH = nameBlockH + unitBlockH + cfg.priceBoxH + 4.5;
+        const imgAreaH = Math.max(24, cardH - textBlockH);
+
+        if (p.image) {
+          try {
+            const pr = doc.getImageProperties(p.image);
+            const maxW = cardW - cfg.imgPad * 2, maxH = imgAreaH - cfg.imgPad * 2;
+            const ratio = Math.min(maxW / pr.width, maxH / pr.height);
+            const iw = pr.width * ratio, ih = pr.height * ratio;
+            doc.addImage(p.image, 'JPEG', x + (cardW - iw) / 2, y + cfg.imgPad + (maxH - ih) / 2, iw, ih);
+          } catch (_) {}
+        }
+
+        if (p.badge) {
+          const bt = p.badge.toUpperCase(); doc.setFont('helvetica', 'bold'); doc.setFontSize(perPage <= 4 ? 8 : 6.5);
+          const bw = doc.getTextWidth(bt) + 5, bh = perPage <= 4 ? 5.5 : 4.5;
+          if (p.badge === 'NEW') doc.setFillColor(37, 99, 235); else if (p.badge === 'OUT OF STOCK') doc.setFillColor(71, 85, 105); else doc.setFillColor(220, 38, 38);
+          doc.roundedRect(x + cardW - bw - 2.5, y + 2.5, bw, bh, 1.5, 1.5, 'F');
+          doc.setTextColor(255, 255, 255); doc.text(bt, x + cardW - bw / 2 - 2.5, y + (perPage <= 4 ? 6.2 : 5.7), { align: 'center' });
+        }
+
+        const divY = y + imgAreaH;
+        doc.setDrawColor(203, 213, 225); doc.setLineWidth(0.35); doc.line(x + 2, divY, x + cardW - 2, divY);
+
+        doc.setTextColor(15, 23, 42); doc.setFont('helvetica', 'bold'); doc.setFontSize(cfg.nameSize);
+        const nameTopY = divY + (perPage <= 4 ? 6.5 : 5);
+        doc.text(nameLines, x + 3, nameTopY);
+
+        if (hasUnit) {
+          doc.setTextColor(71, 85, 105); doc.setFont('helvetica', 'normal'); doc.setFontSize(cfg.unitSize);
+          const unitY = nameTopY + (nameLines.length - 1) * cfg.lineStep + (perPage <= 4 ? 5.2 : 4);
+          doc.text(p.unit.slice(0, 42), x + 3, unitY);
+        }
+
+        const boxPad = 2.5, boxW = cardW - boxPad * 2, boxY = y + cardH - cfg.priceBoxH - boxPad;
+        const softR = Math.min(255, r + Math.round((255 - r) * 0.9)), softG = Math.min(255, g + Math.round((255 - g) * 0.9)), softB = Math.min(255, b + Math.round((255 - b) * 0.9));
+        doc.setFillColor(softR, softG, softB); doc.setDrawColor(r, g, b); doc.setLineWidth(0.55);
+        doc.roundedRect(x + boxPad, boxY, boxW, cfg.priceBoxH, 2.2, 2.2, 'FD');
+
+        const tpVal = p.oldPrice ? Number(p.oldPrice) : 0, saleVal = Number(p.price), offPct = calcDiscountPercent(tpVal, saleVal);
+        if (tpVal > 0) {
+          const tpY = boxY + (compactP1 ? 6.8 : (perPage <= 4 ? 8 : 5.8));
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(cfg.tpSize); doc.setTextColor(51, 65, 85);
+          const tpL = 'T.P: ', tpP = `${cur} ${formatPrice(tpVal)}`;
+          doc.text(tpL, x + boxPad + 3, tpY); const lblW = doc.getTextWidth(tpL);
+          doc.text(tpP, x + boxPad + 3 + lblW, tpY);
+          if (tpVal > saleVal) {
+            const numW = doc.getTextWidth(tpP);
+            doc.setDrawColor(220, 38, 38); doc.setLineWidth(0.5);
+            doc.line(x + boxPad + 3 + lblW, tpY - 1.3, x + boxPad + 3 + lblW + numW, tpY - 1.3);
+            if (offPct > 0) {
+              const ot = `${offPct}% OFF`; doc.setFontSize(perPage <= 4 ? 9 : 7);
+              const ow = doc.getTextWidth(ot) + 4.5, oh = perPage <= 4 ? 5.5 : 4.5;
+              doc.setFillColor(220, 38, 38); doc.roundedRect(x + boxPad + boxW - ow - 2.5, boxY + 2, ow, oh, 1.3, 1.3, 'F');
+              doc.setTextColor(255, 255, 255); doc.text(ot, x + boxPad + boxW - ow / 2 - 2.5, boxY + (perPage <= 4 ? 5.8 : 5.2), { align: 'center' });
+            }
+          }
+          const saleY = boxY + (compactP1 ? 16.5 : (perPage <= 4 ? 19.2 : perPage === 6 ? 14 : 11.4));
+          let sf = cfg.saleSize; const saleStr = `Sale: ${cur} ${formatPrice(saleVal)}`;
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(sf);
+          while (doc.getTextWidth(saleStr) > boxW - 5 && sf > 10) { sf -= 0.8; doc.setFontSize(sf); }
+          doc.setTextColor(r, g, b); doc.text(saleStr, x + boxPad + 3, saleY);
+        } else {
+          let sf = cfg.saleSize + 1.5; const saleStr = `Sale: ${cur} ${formatPrice(saleVal)}`;
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(sf);
+          while (doc.getTextWidth(saleStr) > boxW - 5 && sf > 10) { sf -= 0.8; doc.setFontSize(sf); }
+          doc.setTextColor(r, g, b); doc.text(saleStr, x + boxPad + 3, boxY + cfg.priceBoxH / 2 + 2.5);
+        }
+      }
+
+      const safeName = (settings.bizName || 'IMK-ENTERPRISES').replace(/[^a-z0-9]+/gi, '-');
+      return { blob: doc.output('blob'), fileName: `${safeName}-Catalogue-${new Date().toISOString().slice(0, 10)}.pdf` };
+    }
+
+    async function handleDownloadPDF() {
+      const btn = document.getElementById('btnSavePdf'); btn.disabled = true; btn.textContent = '⏳ Creating...';
+      try {
+        const res = await buildCataloguePDF();
+        if (res) {
+          const url = URL.createObjectURL(res.blob), a = document.createElement('a');
+          a.href = url; a.download = res.fileName; a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+          showToast('PDF saved!');
+        }
+      } finally { btn.disabled = false; btn.textContent = '📄 Save PDF'; }
+    }
+
+    async function handleShareWhatsAppPDF() {
+      const btn = document.getElementById('btnShareWa'); btn.disabled = true; btn.textContent = '⏳ Preparing...';
+      try {
+        const res = await buildCataloguePDF(); if (!res) return;
+        const file = new File([res.blob], res.fileName, { type: 'application/pdf' });
+        const shareText = `*${settings.bizName}*\n${settings.city}\nUpdated Product Price Catalogue.\nWhatsApp / Call: ${settings.phone}`;
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: settings.bizName + ' Catalogue', text: shareText });
+          showToast('Shared on WhatsApp!');
+        } else {
+          const url = URL.createObjectURL(res.blob), a = document.createElement('a');
+          a.href = url; a.download = res.fileName; a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+          showToast('PDF saved! Attach it in WhatsApp.', 4500);
+          window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+        }
+      } catch (err) {
+        if (err && err.name !== 'AbortError') showToast('Tap "Save PDF" and send in WhatsApp.', 4000);
+      } finally { btn.disabled = false; btn.textContent = '📲 Share PDF WhatsApp'; }
+    }
+
+    function handleShareWhatsAppText() {
+      sortProductsList();
+      const selected = products.filter(p => p.included !== false);
+      if (selected.length === 0) { alert('Please select at least 1 product.'); return; }
+      const cur = settings.currency || 'Rs.';
+      let msg = `*${settings.bizName}*\n`;
+      if (settings.city) msg += `📍 ${settings.city}\n`;
+      if (settings.phone) msg += `📞 ${settings.phone}\n`;
+      msg += `📅 *Rate List (${new Date().toLocaleDateString('en-PK')})*\n------------------------\n`;
+      selected.forEach((p, idx) => {
+        msg += `${idx + 1}. *${p.name}*`;
+        if (p.unit) msg += ` (${p.unit})`;
+        if (p.oldPrice && Number(p.oldPrice) > Number(p.price)) msg += `\n   T.P: ~${cur} ${formatPrice(p.oldPrice)}~ | *Sale: ${cur} ${formatPrice(p.price)}*\n`;
+        else msg += ` — *Sale: ${cur} ${formatPrice(p.price)}*\n`;
+      });
+      if (settings.footerNote) msg += `\n_${settings.footerNote}_`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
+    init();
+  </script>
+</body>
+</html>
