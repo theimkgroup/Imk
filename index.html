@@ -17,8 +17,8 @@
     .brand-info { display:flex; align-items:center; gap:9px; min-width:0; }
     .brand-logo { height:46px; max-width:94px; border-radius:7px; object-fit:cover; background:#04153d; flex-shrink:0; border:1px solid rgba(255,255,255,0.45); }
     .brand-text { min-width:0; }
-    .brand-text h1 { font-size:1.06rem; letter-spacing:0.4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .brand-text p { font-size:0.71rem; opacity:0.94; line-height:1.25; word-break:break-word; }
+    .brand-text h1 { font-size:1.05rem; letter-spacing:0.4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .brand-text p { font-size:0.7rem; opacity:0.94; line-height:1.25; word-break:break-word; }
     .header-actions { display:flex; gap:5px; flex-shrink:0; }
 
     .top-tabs { display:grid; grid-template-columns:1fr 1fr; gap:6px; max-width:1100px; margin:0 auto; }
@@ -49,6 +49,8 @@
     input:focus, select:focus { outline:2px solid var(--accent); border-color:transparent; }
 
     .stats-bar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; font-size:0.8rem; color:var(--muted); }
+    .cloud-pill { font-size:0.74rem; font-weight:700; padding:4px 8px; border-radius:999px; background:#e2e8f0; color:#334155; display:inline-flex; align-items:center; gap:4px; }
+    .cloud-pill.live { background:#dcfce7; color:#15803d; }
 
     .product-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:9px; }
     .product-grid.single-col { grid-template-columns:1fr; gap:14px; }
@@ -120,7 +122,6 @@
     .calc-hint { font-size:0.75rem; color:var(--accent); font-weight:600; margin-top:4px; }
     .modal-footer { padding:12px 16px; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:8px; background:#f8fafc; }
 
-    /* 4-Digit PIN Input Styling */
     .pin-input { text-align:center; font-size:1.8rem; font-weight:900; letter-spacing:14px; padding:12px; border:2px solid var(--accent); border-radius:12px; }
     .pin-error { color:var(--danger); font-size:0.84rem; font-weight:700; text-align:center; display:none; }
 
@@ -157,9 +158,9 @@
           <p id="headerBizSub">Shaheenabad Gujranwala Pakistan | 03015140572 / 03030930726 / 03016460454</p>
         </div>
       </div>
-      <div class="header-actions admin-only">
-        <button class="btn btn-outline-white btn-sm" onclick="openSettingsModal()">⚙️ Shop</button>
-        <button class="btn btn-white btn-sm" onclick="openProductModal()">+ Add</button>
+      <div class="header-actions">
+        <button class="btn btn-outline-white btn-sm" id="btnSyncNow" onclick="manualSync()" title="Refresh latest items from Cloud">🔄 Sync</button>
+        <button class="btn btn-white btn-sm admin-only" onclick="openProductModal()">+ Add</button>
       </div>
     </div>
     <div class="top-tabs">
@@ -184,10 +185,10 @@
     <div class="admin-bar admin-only">
       <div class="admin-bar-btns">
         <button class="btn btn-primary btn-sm" onclick="openProductModal()">+ Add Product</button>
-        <button class="btn btn-gold btn-sm" id="btnUploadBannerQuick" onclick="openSettingsModal()">🖼️ Upload IMK Banner</button>
+        <button class="btn btn-gold btn-sm" id="btnUploadBannerQuick" onclick="openSettingsModal()">⚙️ Shop & Cloud</button>
         <button class="btn btn-secondary btn-sm" onclick="openBulkModal()">💹 Bulk %</button>
       </div>
-      <div style="font-size:0.74rem; color:var(--muted);">Hold <strong>⠿ Drag</strong> to reorder</div>
+      <span class="cloud-pill" id="cloudStatusPill">☁️ Cloud Connected</span>
     </div>
 
     <div class="stats-bar admin-only">
@@ -344,32 +345,41 @@
     </div>
   </div>
 
-  <!-- Settings Modal -->
+  <!-- Settings & Cloud Sync Modal -->
   <div class="modal-backdrop" id="settingsModal">
     <div class="modal">
       <div class="modal-header">
-        <h2>Shop, PIN & Banner Settings</h2>
+        <h2>Shop, PIN & Cloud Sync Settings</h2>
         <button class="close-btn" onclick="closeModal('settingsModal')">&times;</button>
       </div>
       <form onsubmit="saveSettings(event)">
         <div class="modal-body">
+          <div class="form-group" style="background:#dcfce7; padding:10px; border-radius:10px; border:1px solid #22c55e;">
+            <label style="color:#14532d;">☁️ Live Cloud Sync (Dono Phones Par Same Data)</label>
+            <input type="url" id="setCloudUrl" placeholder="https://imk-catalogue-default-rtdb.firebaseio.com" />
+            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:7px;">
+              <button type="button" class="btn btn-primary btn-sm" style="flex:1;" onclick="pushAllToCloud()">⬆️ Upload All to Cloud</button>
+              <button type="button" class="btn btn-whatsapp btn-sm" style="flex:1;" onclick="copyColleagueLink()">🔗 Share Colleague Link</button>
+            </div>
+            <p style="font-size:0.71rem; color:#166534; margin-top:5px;">Pehli dafa <strong>⬆️ Upload All to Cloud</strong> dabayein taake aap ke saare purane products Cloud par chalay jayein!</p>
+          </div>
+
           <div class="form-group" style="background:#fef9c3; padding:10px; border-radius:10px; border:1px solid #facc15;">
-            <label style="color:#713f12;">🔐 Admin 4-Digit Password / PIN (Change Anytime)</label>
+            <label style="color:#713f12;">🔐 Admin 4-Digit Password / PIN</label>
             <input type="text" inputmode="numeric" pattern="\d{4}" maxlength="4" id="setAdminPin" placeholder="1234" required />
           </div>
 
           <div class="form-group" style="background:#eff6ff; padding:10px; border-radius:10px; border:1px solid #93c5fd;">
             <label style="color:#04153d;">IMK Banner / Logo (Full HD)</label>
-            <div class="img-preview-box" style="height:110px; background:#04153d;" id="logoPreviewBox"><span style="color:#cbd5e1;font-size:0.8rem;">No banner selected</span></div>
+            <div class="img-preview-box" style="height:105px; background:#04153d;" id="logoPreviewBox"><span style="color:#cbd5e1;font-size:0.8rem;">No banner selected</span></div>
             <div id="logoQualityNote" style="font-size:0.76rem; font-weight:700; margin-bottom:6px; color:#334155;"></div>
-            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;">
-              <button type="button" class="btn btn-primary btn-sm" style="flex:1;" onclick="useBuiltInHDBanner()">✨ Use Built-in HD IMK Banner (1600px)</button>
-            </div>
+            <button type="button" class="btn btn-primary btn-sm" style="width:100%; margin-bottom:6px;" onclick="useBuiltInHDBanner()">✨ Use Built-in HD IMK Banner (1600px)</button>
             <div style="display:flex; gap:8px;">
               <input type="file" id="logoInput" accept="image/*" onchange="handleImageUpload(event, 'logo')" />
               <button type="button" class="btn btn-danger btn-sm" onclick="removeLogo()">Remove</button>
             </div>
           </div>
+
           <div class="form-group"><label>Distribution Name *</label><input type="text" id="setBizName" required /></div>
           <div class="form-group"><label>Address</label><input type="text" id="setCity" /></div>
           <div class="form-group"><label>Phone / WhatsApp Numbers</label><input type="text" id="setPhone" /></div>
@@ -409,6 +419,9 @@
   <div id="toast" class="toast"></div>
 
   <script>
+    // Your Firebase Realtime Database URL is pre-connected below!
+    const DEFAULT_CLOUD_URL = 'https://imk-catalogue-default-rtdb.firebaseio.com';
+
     const DB_NAME = 'IMKCatalogueDB';
     const DB_VERSION = 1;
     let db = null;
@@ -445,8 +458,12 @@
       footerNote: 'IMK ENTERPRISES • Shaheenabad Gujranwala • Order on WhatsApp',
       logo: '',
       pdfPerPage: 4,
-      adminPin: '1234'
+      adminPin: '1234',
+      cloudUrl: DEFAULT_CLOUD_URL
     };
+
+    function cleanCloudUrl(u) { return (u || '').trim().replace(/\/+$/, ''); }
+    function getCloudUrl() { return cleanCloudUrl(settings.cloudUrl || DEFAULT_CLOUD_URL); }
 
     function drawRoundRect(ctx, x, y, w, h, r) {
       if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
@@ -477,24 +494,18 @@
       const W = 1600, H = 680;
       const c = document.createElement('canvas'); c.width = W; c.height = H;
       const ctx = c.getContext('2d');
-
       const bg = ctx.createRadialGradient(W/2, H*0.42, 40, W/2, H*0.5, W*0.65);
       bg.addColorStop(0, '#0ea5e9'); bg.addColorStop(0.32, '#1d4ed8'); bg.addColorStop(0.7, '#061a4d'); bg.addColorStop(1, '#020b24');
       ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-
       ctx.strokeStyle = 'rgba(125, 211, 252, 0.28)'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(W/2, H*0.42, 275, 0, Math.PI * 2); ctx.stroke();
       ctx.beginPath(); ctx.ellipse(W/2, H*0.42, 275, 110, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.beginPath(); ctx.ellipse(W/2, H*0.42, 135, 275, 0, 0, Math.PI * 2); ctx.stroke();
-
-      ctx.save();
-      ctx.shadowColor = 'rgba(56, 189, 248, 0.75)'; ctx.shadowBlur = 45;
+      ctx.save(); ctx.shadowColor = 'rgba(56, 189, 248, 0.75)'; ctx.shadowBlur = 45;
       const cardGrad = ctx.createLinearGradient(470, 110, 1130, 580);
       cardGrad.addColorStop(0, '#0b2559'); cardGrad.addColorStop(0.5, '#071739'); cardGrad.addColorStop(1, '#0d2e6e');
       ctx.fillStyle = cardGrad; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 4;
-      drawRoundRect(ctx, 470, 105, 660, 470, 26); ctx.fill(); ctx.stroke();
-      ctx.restore();
-
+      drawRoundRect(ctx, 470, 105, 660, 470, 26); ctx.fill(); ctx.stroke(); ctx.restore();
       const gx = W/2, gy = 215, gr = 74;
       const gGrad = ctx.createRadialGradient(gx-20, gy-20, 10, gx, gy, gr);
       gGrad.addColorStop(0, '#bae6fd'); gGrad.addColorStop(0.6, '#38bdf8'); gGrad.addColorStop(1, '#0369a1');
@@ -502,32 +513,20 @@
       ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.ellipse(gx, gy, gr, 28, -0.2, 0, Math.PI*2); ctx.stroke();
       ctx.beginPath(); ctx.ellipse(gx, gy, 34, gr, 0, 0, Math.PI*2); ctx.stroke();
-
       ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = 10;
       ctx.beginPath(); ctx.ellipse(gx, gy+8, 125, 36, -0.25, 0.15, Math.PI*1.15); ctx.stroke();
-
       ctx.textAlign = 'center';
       const txtGrad = ctx.createLinearGradient(0, 310, 0, 415);
       txtGrad.addColorStop(0, '#ffffff'); txtGrad.addColorStop(1, '#cbd5e1');
-      ctx.fillStyle = txtGrad; ctx.font = 'bold 132px Arial';
-      ctx.fillText('IMK', W/2, 410);
-
-      ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 44px Arial';
-      ctx.fillText('E N T E R P R I S E S', W/2, 468);
-
+      ctx.fillStyle = txtGrad; ctx.font = 'bold 132px Arial'; ctx.fillText('IMK', W/2, 410);
+      ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 44px Arial'; ctx.fillText('E N T E R P R I S E S', W/2, 468);
       ctx.fillStyle = '#facc15'; ctx.fillRect(W/2 - 170, 492, 340, 4);
-      ctx.fillStyle = '#fef08a'; ctx.font = 'bold 28px Arial';
-      ctx.fillText('DRIVEN TO GROW.', W/2, 538);
-
-      ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff'; ctx.font = 'bold 48px Arial';
-      ctx.fillText('DRIVEN TO', 55, 165);
-      ctx.fillStyle = '#38bdf8'; ctx.font = 'bold 72px Arial';
-      ctx.fillText('GROW', 55, 240);
-
+      ctx.fillStyle = '#fef08a'; ctx.font = 'bold 28px Arial'; ctx.fillText('DRIVEN TO GROW.', W/2, 538);
+      ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff'; ctx.font = 'bold 48px Arial'; ctx.fillText('DRIVEN TO', 55, 165);
+      ctx.fillStyle = '#38bdf8'; ctx.font = 'bold 72px Arial'; ctx.fillText('GROW', 55, 240);
       ctx.textAlign = 'right'; ctx.fillStyle = '#e0f2fe'; ctx.font = 'bold 38px Arial';
       ctx.fillText('STRONGER', W - 55, 145); ctx.fillText('TOGETHER', W - 55, 192);
       ctx.fillStyle = '#38bdf8'; ctx.fillText('BRIGHTER', W - 55, 239); ctx.fillText('TOMORROW', W - 55, 286);
-
       ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(0, H - 56, W, 56);
       ctx.textAlign = 'center'; ctx.fillStyle = '#bae6fd'; ctx.font = 'bold 26px Arial';
       ctx.fillText('FMCG WHOLESALE DISTRIBUTION  •  GUJRANWALA  •  PAKISTAN', W/2, H - 20);
@@ -547,14 +546,151 @@
       ];
     }
 
+    async function cloudRequest(path, method = 'GET', body = undefined) {
+      const base = getCloudUrl();
+      if (!base) return null;
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body !== undefined) opts.body = JSON.stringify(body);
+      const res = await fetch(`${base}/${path}.json`, opts);
+      if (!res.ok) throw new Error('Cloud error ' + res.status);
+      return await res.json();
+    }
+
+    async function syncFromCloud(silent = true) {
+      const base = getCloudUrl();
+      const pill = document.getElementById('cloudStatusPill');
+      if (!base) {
+        if (pill) { pill.textContent = '📴 Local Only'; pill.classList.remove('live'); }
+        return false;
+      }
+      try {
+        if (pill) pill.textContent = '⏳ Syncing...';
+        const [meta, cloudSettings, cloudProducts] = await Promise.all([
+          cloudRequest('meta'),
+          cloudRequest('settings'),
+          cloudRequest('products')
+        ]);
+
+        if (!meta && !cloudProducts) {
+          if (pill) { pill.textContent = '☁️ Cloud Empty — Upload Now'; pill.classList.add('live'); }
+          if (!silent || products.length > 0) {
+            showToast('Cloud khali hai — Settings mein "⬆️ Upload All to Cloud" dabayein!', 3800);
+          }
+          return false;
+        }
+
+        if (cloudSettings && typeof cloudSettings === 'object') {
+          settings = { ...settings, ...cloudSettings, key: 'appSettings', cloudUrl: base };
+          await dbPut('settings', settings);
+          applySettingsUI();
+        }
+
+        const list = cloudProducts ? Object.values(cloudProducts) : [];
+        await dbClear('products');
+        for (const p of list) await dbPut('products', p);
+        products = list;
+        localStorage.setItem('imk_seeded', '1');
+        sortProductsList();
+        populateCategoryFilter();
+        renderProducts();
+        if (pill) { pill.textContent = '☁️ Cloud Live'; pill.classList.add('live'); }
+        if (!silent) showToast(`✅ Synced ${products.length} items from Cloud!`);
+        return true;
+      } catch (err) {
+        if (pill) { pill.textContent = '⚠️ Offline / Sync Error'; pill.classList.remove('live'); }
+        if (!silent) alert('Cloud Sync Error: ' + (err.message || err));
+        return false;
+      }
+    }
+
+    async function cloudSaveProduct(item) {
+      if (!getCloudUrl()) return;
+      try {
+        await cloudRequest(`products/${item.id}`, 'PUT', item);
+        await cloudRequest('meta', 'PUT', { initialized: true, updatedAt: Date.now() });
+      } catch (_) { showToast('Saved locally (Cloud sync pending)'); }
+    }
+
+    async function cloudDeleteProduct(id) {
+      if (!getCloudUrl()) return;
+      try { await cloudRequest(`products/${id}`, 'DELETE'); } catch (_) {}
+    }
+
+    async function cloudPatchOrder() {
+      if (!getCloudUrl()) return;
+      try {
+        const patch = {};
+        for (let i = 0; i < products.length; i++) patch[`${products[i].id}/sortOrder`] = products[i].sortOrder;
+        await cloudRequest('products', 'PATCH', patch);
+      } catch (_) {}
+    }
+
+    async function cloudSaveSettings() {
+      if (!getCloudUrl()) return;
+      try {
+        await cloudRequest('settings', 'PUT', settings);
+        await cloudRequest('meta', 'PUT', { initialized: true, updatedAt: Date.now() });
+      } catch (_) {}
+    }
+
+    async function pushAllToCloud() {
+      const inputUrl = cleanCloudUrl(document.getElementById('setCloudUrl').value || DEFAULT_CLOUD_URL);
+      if (!inputUrl) { alert('Pehle Firebase Database URL paste karein!'); return; }
+      settings.cloudUrl = inputUrl;
+      await dbPut('settings', settings);
+      showToast('Uploading all products to Cloud...', 4500);
+      try {
+        const prodMap = {};
+        for (const p of products) prodMap[p.id] = p;
+        await cloudRequest('settings', 'PUT', settings);
+        await cloudRequest('products', 'PUT', prodMap);
+        await cloudRequest('meta', 'PUT', { initialized: true, updatedAt: Date.now() });
+        applySettingsUI();
+        showToast(`✅ ${products.length} products Cloud par upload ho gaye!`);
+      } catch (err) {
+        alert('Upload Failed: ' + (err.message || err) + '\n\nFirebase Rules check karein.');
+      }
+    }
+
+    function copyColleagueLink() {
+      const urlVal = cleanCloudUrl(document.getElementById('setCloudUrl').value || getCloudUrl());
+      const basePage = window.location.href.split('?')[0];
+      const link = urlVal ? `${basePage}?cloud=${encodeURIComponent(urlVal)}` : basePage;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(() => {
+          showToast('Link copied! WhatsApp par bhej dein.', 3500);
+        }).catch(() => prompt('Copy this link:', link));
+      } else {
+        prompt('Copy this link:', link);
+      }
+    }
+
+    async function manualSync() {
+      const btn = document.getElementById('btnSyncNow');
+      btn.disabled = true; btn.textContent = '⏳';
+      try {
+        await syncFromCloud(false);
+      } finally { btn.disabled = false; btn.textContent = '🔄 Sync'; }
+    }
+
     async function init() {
       await openDB();
       const savedSettings = await dbGetAll('settings');
       if (savedSettings.length > 0) settings = { ...settings, ...savedSettings[0] };
       else await dbPut('settings', settings);
 
+      const params = new URLSearchParams(window.location.search);
+      const paramCloud = cleanCloudUrl(params.get('cloud'));
+      if (paramCloud && paramCloud.startsWith('https://')) {
+        settings.cloudUrl = paramCloud;
+        await dbPut('settings', settings);
+      } else if (!settings.cloudUrl && DEFAULT_CLOUD_URL) {
+        settings.cloudUrl = cleanCloudUrl(DEFAULT_CLOUD_URL);
+        await dbPut('settings', settings);
+      }
+
       const savedProducts = await dbGetAll('products');
-      if (savedProducts.length === 0 && !localStorage.getItem('imk_seeded')) {
+      if (savedProducts.length === 0 && !localStorage.getItem('imk_seeded') && !getCloudUrl()) {
         const samples = getSampleProducts();
         for (const p of samples) await dbPut('products', p);
         localStorage.setItem('imk_seeded', '1');
@@ -574,26 +710,23 @@
       populateCategoryFilter();
       switchTab('customer');
       initDragAndDrop();
+
+      if (getCloudUrl()) syncFromCloud(true);
     }
 
-    // 4-Digit PIN Guard for Edit / Add & PDF Tab
     function switchTab(mode) {
       if (mode === 'admin' && !isAdminUnlocked) {
         document.getElementById('pinInput').value = '';
         document.getElementById('pinError').style.display = 'none';
         const currentPin = String(settings.adminPin || '1234');
         document.getElementById('pinDefaultHint').textContent = (currentPin === '1234')
-          ? 'Default PIN: 1234 (Settings mein ja kar badal sakte hain)'
-          : '';
+          ? 'Default PIN: 1234 (Settings mein badal sakte hain)' : '';
         document.getElementById('pinModal').classList.add('open');
         setTimeout(() => document.getElementById('pinInput').focus(), 100);
         return;
       }
 
-      if (mode === 'customer') {
-        isAdminUnlocked = false; // Auto-lock when switching back to Customer View
-      }
-
+      if (mode === 'customer') isAdminUnlocked = false;
       isCustomerMode = (mode === 'customer');
       document.body.classList.toggle('customer-mode', isCustomerMode);
       document.getElementById('tabCatalogue').classList.toggle('active', isCustomerMode);
@@ -613,14 +746,10 @@
       const entered = document.getElementById('pinInput').value.trim();
       const correct = String(settings.adminPin || '1234');
       if (entered === correct) {
-        isAdminUnlocked = true;
-        closeModal('pinModal');
-        switchTab('admin');
-        showToast('🔓 Unlocked!');
+        isAdminUnlocked = true; closeModal('pinModal'); switchTab('admin'); showToast('🔓 Unlocked!');
       } else {
         document.getElementById('pinError').style.display = 'block';
-        document.getElementById('pinInput').value = '';
-        document.getElementById('pinInput').focus();
+        document.getElementById('pinInput').value = ''; document.getElementById('pinInput').focus();
       }
     }
 
@@ -647,23 +776,14 @@
       document.getElementById('headerBizName').textContent = settings.bizName;
       document.getElementById('headerBizSub').textContent = [settings.city, settings.phone].filter(Boolean).join(' | ');
       const logoEl = document.getElementById('headerLogo');
-      const quickBtn = document.getElementById('btnUploadBannerQuick');
-      if (settings.logo) {
-        logoEl.src = settings.logo; logoEl.style.display = 'block';
-        checkLogoResolution(settings.logo, (w) => {
-          if (w > 0 && w < 700) {
-            quickBtn.textContent = '⚠️ Banner Blur — Fix Karein';
-            quickBtn.className = 'btn btn-danger btn-sm';
-          } else {
-            quickBtn.textContent = '🖼️ HD Banner Set';
-            quickBtn.className = 'btn btn-secondary btn-sm';
-          }
-        });
-      } else {
-        logoEl.style.display = 'none';
-        quickBtn.textContent = '🖼️ Upload IMK Banner';
-        quickBtn.className = 'btn btn-gold btn-sm';
+      if (settings.logo) { logoEl.src = settings.logo; logoEl.style.display = 'block'; } else logoEl.style.display = 'none';
+
+      const pill = document.getElementById('cloudStatusPill');
+      if (pill) {
+        if (getCloudUrl()) { pill.textContent = '☁️ Cloud Live'; pill.classList.add('live'); }
+        else { pill.textContent = '📴 Local Only'; pill.classList.remove('live'); }
       }
+
       document.getElementById('pdfLayoutSelect').value = String(settings.pdfPerPage || 4);
       document.querySelectorAll('.currencyLabel').forEach(el => el.textContent = settings.currency || 'Rs.');
     }
@@ -696,7 +816,7 @@
       document.getElementById('selectedCountText').textContent = `${products.filter(p => p.included !== false).length} of ${products.length}`;
 
       if (currentFilteredList.length === 0) {
-        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p style="font-size:1.05rem;font-weight:600;margin-bottom:8px;">No products found</p><p style="font-size:0.88rem;">Open <strong>"🔒 Edit / Add & PDF"</strong> tab above to add products.</p></div>`;
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p style="font-size:1.05rem;font-weight:600;margin-bottom:8px;">No products found</p><p style="font-size:0.88rem;">Tap <strong>"🔒 Edit / Add & PDF"</strong> or <strong>"🔄 Sync"</strong> above.</p></div>`;
         return;
       }
 
@@ -798,7 +918,7 @@
 
     async function saveNewOrder() {
       for (let i = 0; i < products.length; i++) { products[i].sortOrder = i + 1; await dbPut('products', products[i]); }
-      renderProducts();
+      renderProducts(); cloudPatchOrder();
     }
     async function reorderProductToTarget(srcId, dstId) {
       sortProductsList();
@@ -879,10 +999,10 @@
       if (!w) { note.textContent = ''; return; }
       if (w < 700) {
         note.style.color = '#dc2626';
-        note.textContent = `⚠️ Ye photo choti hai (${w}×${h} px) — is liye blur aati hai! Upar "Use Built-in HD IMK Banner" dabayein.`;
+        note.textContent = `⚠️ Low Quality (${w}×${h} px) — Tap "Use Built-in HD IMK Banner" above.`;
       } else {
         note.style.color = '#16a34a';
-        note.textContent = `✅ Full HD Quality Ready: ${w}×${h} px`;
+        note.textContent = `✅ Full HD Ready: ${w}×${h} px`;
       }
     }
 
@@ -911,14 +1031,8 @@
           ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
           if (target === 'product') c = trimWhiteBorders(c);
           const url = c.toDataURL('image/jpeg', q);
-          if (target === 'product') {
-            tempProductImage = url;
-            document.getElementById('prodImgPreviewBox').innerHTML = `<img src="${url}" />`;
-          } else {
-            tempLogoImage = url;
-            document.getElementById('logoPreviewBox').innerHTML = `<img src="${url}" />`;
-            updateLogoQualityNote(c.width, c.height);
-          }
+          if (target === 'product') { tempProductImage = url; document.getElementById('prodImgPreviewBox').innerHTML = `<img src="${url}" />`; }
+          else { tempLogoImage = url; document.getElementById('logoPreviewBox').innerHTML = `<img src="${url}" />`; updateLogoQualityNote(c.width, c.height); }
         };
         img.src = rawUrl;
       };
@@ -926,8 +1040,7 @@
     }
 
     function onTpOrDiscountInput() {
-      const tp = parseFloat(document.getElementById('prodTpPrice').value);
-      const pctRaw = document.getElementById('prodDiscountPct').value;
+      const tp = parseFloat(document.getElementById('prodTpPrice').value), pctRaw = document.getElementById('prodDiscountPct').value;
       const saleInput = document.getElementById('prodSalePrice'), hint = document.getElementById('calcHintText');
       if (!isNaN(tp) && tp > 0) {
         const pct = pctRaw === '' ? 0 : parseFloat(pctRaw);
@@ -982,42 +1095,63 @@
       await dbPut('products', item);
       const idx = products.findIndex(x => x.id === id);
       if (idx >= 0) products[idx] = item; else products.push(item);
-      closeModal('productModal'); populateCategoryFilter(); renderProducts(); showToast('Saved at #' + item.sortOrder + '!');
+      closeModal('productModal'); populateCategoryFilter(); renderProducts();
+      await cloudSaveProduct(item);
+      showToast(getCloudUrl() ? `☁️ Saved & Synced (#${item.sortOrder})!` : `Saved at #${item.sortOrder}!`);
     }
 
     async function duplicateProduct(id) {
       const p = products.find(x => x.id === id); if (!p) return;
       const maxOrder = products.length > 0 ? Math.max(...products.map(x => Number(x.sortOrder) || 0)) : 0;
       const copy = { ...p, id: 'p-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), name: p.name + ' (Copy)', sortOrder: maxOrder + 1, createdAt: Date.now() };
-      await dbPut('products', copy); products.push(copy); renderProducts(); showToast('Copied!');
+      await dbPut('products', copy); products.push(copy); renderProducts();
+      await cloudSaveProduct(copy); showToast('Copied!');
     }
 
     async function deleteProduct(id) {
       if (!confirm('Delete this product?')) return;
       await dbDelete('products', id); products = products.filter(p => p.id !== id);
+      await cloudDeleteProduct(id);
       sortProductsList(); await saveNewOrder(); populateCategoryFilter(); showToast('Deleted.');
     }
 
-    async function toggleInclude(id) { const p = products.find(x => x.id === id); if (!p) return; p.included = p.included === false ? true : false; await dbPut('products', p); renderProducts(); }
-    async function toggleSelectAll() { const next = !products.every(p => p.included !== false); for (const p of products) { p.included = next; await dbPut('products', p); } renderProducts(); }
+    async function toggleInclude(id) {
+      const p = products.find(x => x.id === id); if (!p) return;
+      p.included = p.included === false ? true : false;
+      await dbPut('products', p); renderProducts(); cloudSaveProduct(p);
+    }
+    async function toggleSelectAll() {
+      const next = !products.every(p => p.included !== false);
+      for (const p of products) { p.included = next; await dbPut('products', p); }
+      renderProducts();
+      if (getCloudUrl()) {
+        const patch = {};
+        for (const p of products) patch[`${p.id}/included`] = p.included;
+        cloudRequest('products', 'PATCH', patch).catch(() => {});
+      }
+    }
 
     function openBulkModal() { document.getElementById('bulkModal').classList.add('open'); }
     async function applyBulkPercentage(e) {
       e.preventDefault();
       const cat = document.getElementById('bulkCategory').value, act = document.getElementById('bulkAction').value, pct = parseFloat(document.getElementById('bulkPercent').value);
       if (isNaN(pct)) return;
-      let cnt = 0;
+      let cnt = 0; const patch = {};
       for (const p of products) {
         if (cat !== 'ALL' && (p.category || '') !== cat) continue;
         if (act === 'discount_tp') { const tp = Number(p.oldPrice) || Number(p.price); if (tp > 0) { p.oldPrice = tp; p.price = Math.max(0, Math.round(tp * (1 - pct / 100))); cnt++; } }
         else if (act === 'change_sale') { p.price = Math.max(0, Math.round(Number(p.price) * (1 + pct / 100))); cnt++; }
         else if (act === 'change_tp') { if (p.oldPrice) p.oldPrice = Math.max(0, Math.round(Number(p.oldPrice) * (1 + pct / 100))); p.price = Math.max(0, Math.round(Number(p.price) * (1 + pct / 100))); cnt++; }
         await dbPut('products', p);
+        patch[p.id] = p;
       }
-      closeModal('bulkModal'); renderProducts(); showToast(`Updated ${cnt} products!`);
+      closeModal('bulkModal'); renderProducts();
+      if (getCloudUrl() && cnt > 0) cloudRequest('products', 'PATCH', patch).catch(() => {});
+      showToast(`Updated ${cnt} products!`);
     }
 
     function openSettingsModal() {
+      document.getElementById('setCloudUrl').value = settings.cloudUrl || DEFAULT_CLOUD_URL;
       document.getElementById('setAdminPin').value = settings.adminPin || '1234';
       document.getElementById('setBizName').value = settings.bizName;
       document.getElementById('setCity').value = settings.city || '';
@@ -1036,10 +1170,8 @@
     async function saveSettings(e) {
       e.preventDefault();
       const newPin = document.getElementById('setAdminPin').value.trim();
-      if (!/^\d{4}$/.test(newPin)) {
-        alert('Admin PIN sirf 4 digits (numbers) ka hona chahiye! (Maslan 1234)');
-        return;
-      }
+      if (!/^\d{4}$/.test(newPin)) { alert('Admin PIN sirf 4 digits ka hona chahiye!'); return; }
+      settings.cloudUrl = cleanCloudUrl(document.getElementById('setCloudUrl').value || DEFAULT_CLOUD_URL);
       settings.adminPin = newPin;
       settings.bizName = document.getElementById('setBizName').value.trim();
       settings.city = document.getElementById('setCity').value.trim();
@@ -1049,7 +1181,9 @@
       settings.offerTitle = document.getElementById('setOfferTitle').value.trim() || 'WHOLESALE CATALOGUE';
       settings.footerNote = document.getElementById('setFooter').value.trim();
       settings.logo = tempLogoImage;
-      await dbPut('settings', settings); applySettingsUI(); renderProducts(); closeModal('settingsModal'); showToast('Settings & PIN saved!');
+      await dbPut('settings', settings); applySettingsUI(); renderProducts(); closeModal('settingsModal');
+      await cloudSaveSettings();
+      showToast('Settings saved!');
     }
 
     async function saveLayoutPref() { settings.pdfPerPage = parseInt(document.getElementById('pdfLayoutSelect').value, 10) || 4; await dbPut('settings', settings); }
@@ -1057,6 +1191,7 @@
     async function clearAllProducts() {
       if (!confirm('Delete ALL products?')) return;
       await dbClear('products'); products = []; localStorage.setItem('imk_seeded', '1');
+      if (getCloudUrl()) cloudRequest('products', 'DELETE').catch(() => {});
       populateCategoryFilter(); renderProducts(); closeModal('settingsModal'); showToast('Cleared.');
     }
 
@@ -1104,10 +1239,7 @@
       if (selected.length === 0) { alert('Please select at least 1 product.'); return null; }
 
       const ok = await ensureJsPDF();
-      if (!ok) {
-        alert('Internet connection slow ya band hai — PDF engine load nahi ho saka. Internet ON kar ke dobara try karein.');
-        return null;
-      }
+      if (!ok) { alert('Internet connection slow ya band hai — PDF engine load nahi ho saka.'); return null; }
 
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -1127,10 +1259,7 @@
       const logoFmt = (settings.logo && settings.logo.startsWith('data:image/png')) ? 'PNG' : 'JPEG';
       let hasWideBanner = false;
       if (settings.logo) {
-        try {
-          const pr = doc.getImageProperties(settings.logo);
-          if (pr.width / pr.height >= 1.35) hasWideBanner = true;
-        } catch (_) {}
+        try { const pr = doc.getImageProperties(settings.logo); if (pr.width / pr.height >= 1.35) hasWideBanner = true; } catch (_) {}
       }
 
       function drawHeader(pageNum) {
@@ -1139,23 +1268,15 @@
             try {
               const pr = doc.getImageProperties(settings.logo);
               const bannerH = Math.min(82, Math.round(pageW * pr.height / pr.width));
-              doc.setFillColor(4, 21, 61);
-              doc.rect(0, 0, pageW, bannerH, 'F');
-
-              const padY = 2;
-              const ratio = Math.min((pageW - 8) / pr.width, (bannerH - padY * 2) / pr.height);
-              const bw = pr.width * ratio, bh = pr.height * ratio;
-              const bx = (pageW - bw) / 2, by = (bannerH - bh) / 2;
-
+              doc.setFillColor(4, 21, 61); doc.rect(0, 0, pageW, bannerH, 'F');
+              const padY = 2, ratio = Math.min((pageW - 8) / pr.width, (bannerH - padY * 2) / pr.height);
+              const bw = pr.width * ratio, bh = pr.height * ratio, bx = (pageW - bw) / 2, by = (bannerH - bh) / 2;
               doc.addImage(settings.logo, logoFmt, bx, by, bw, bh);
-              doc.setDrawColor(96, 165, 250);
-              doc.setLineWidth(0.5);
-              doc.rect(bx, by, bw, bh);
+              doc.setDrawColor(96, 165, 250); doc.setLineWidth(0.5); doc.rect(bx, by, bw, bh);
 
               const stripY = bannerH, stripH = 14;
               doc.setFillColor(r, g, b); doc.rect(0, stripY, pageW, stripH, 'F');
               doc.setFillColor(250, 204, 21); doc.rect(0, stripY, pageW, 1.1, 'F'); doc.rect(0, stripY + stripH - 1.1, pageW, 1.1, 'F');
-
               doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
               doc.text(`${settings.bizName || 'IMK ENTERPRISES'}  •  ${settings.city || ''}`, margin, stripY + 5.8);
               doc.setTextColor(253, 224, 71); doc.setFontSize(9);
@@ -1219,14 +1340,9 @@
       let currentStartY = 48;
       for (let i = 0; i < selected.length; i++) {
         const idxOnPage = i % perPage, pageNum = Math.floor(i / perPage) + 1;
-        if (idxOnPage === 0) {
-          if (pageNum > 1) doc.addPage();
-          currentStartY = drawHeader(pageNum);
-          drawFooter(pageNum);
-        }
+        if (idxOnPage === 0) { if (pageNum > 1) doc.addPage(); currentStartY = drawHeader(pageNum); drawFooter(pageNum); }
 
-        const availH = (pageH - 12.5) - currentStartY;
-        const cardH = (availH - gap * (rowsPerPage - 1)) / rowsPerPage;
+        const availH = (pageH - 12.5) - currentStartY, cardH = (availH - gap * (rowsPerPage - 1)) / rowsPerPage;
         const compactP1 = (pageNum === 1 && hasWideBanner && perPage === 4);
 
         const cfg = perPage === 2
@@ -1326,12 +1442,8 @@
     }
 
     function triggerBlobDownload(blob, fileName) {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
+      const url = URL.createObjectURL(blob), a = document.createElement('a');
+      a.href = url; a.download = fileName; document.body.appendChild(a); a.click();
       setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 5000);
     }
 
@@ -1339,13 +1451,9 @@
       const btn = document.getElementById('btnSavePdf'); btn.disabled = true; btn.textContent = '⏳ Creating...';
       try {
         const res = await buildCataloguePDF();
-        if (res) {
-          triggerBlobDownload(res.blob, res.fileName);
-          showToast('PDF saved!');
-        }
-      } catch (err) {
-        alert('Save PDF Error: ' + (err && err.message ? err.message : err));
-      } finally { btn.disabled = false; btn.textContent = '📄 Save PDF'; }
+        if (res) { triggerBlobDownload(res.blob, res.fileName); showToast('PDF saved!'); }
+      } catch (err) { alert('Save PDF Error: ' + (err && err.message ? err.message : err)); }
+      finally { btn.disabled = false; btn.textContent = '📄 Save PDF'; }
     }
 
     async function handleShareWhatsAppPDF() {
@@ -1354,22 +1462,17 @@
         const res = await buildCataloguePDF(); if (!res) return;
         const shareText = `*${settings.bizName}*\n${settings.city}\nUpdated Product Price Catalogue.\nWhatsApp / Call: ${settings.phone}`;
         const file = new File([res.blob], res.fileName, { type: 'application/pdf' });
-
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
             await navigator.share({ files: [file], title: settings.bizName + ' Catalogue', text: shareText });
-            showToast('Shared on WhatsApp!');
-            return;
-          } catch (shareErr) {
-            if (shareErr && shareErr.name === 'AbortError') return;
-          }
+            showToast('Shared on WhatsApp!'); return;
+          } catch (shareErr) { if (shareErr && shareErr.name === 'AbortError') return; }
         }
         triggerBlobDownload(res.blob, res.fileName);
         showToast('PDF saved! Attach it in WhatsApp.', 4500);
         window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
-      } catch (err) {
-        alert('Share Error: ' + (err && err.message ? err.message : err));
-      } finally { btn.disabled = false; btn.textContent = '📲 Share PDF WhatsApp'; }
+      } catch (err) { alert('Share Error: ' + (err && err.message ? err.message : err)); }
+      finally { btn.disabled = false; btn.textContent = '📲 Share PDF WhatsApp'; }
     }
 
     function handleShareWhatsAppText() {
