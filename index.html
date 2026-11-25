@@ -4,13 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#04153d" />
-  <title>IMK ENTERPRISES - Catalogue</title>
+  <title>IMK ENTERPRISES - Catalogue v5.0</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js"></script>
   <style>
     :root { --primary:#04153d; --accent:#0f3478; --bg:#f1f5f9; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#cbd5e1; --danger:#dc2626; --whatsapp:#16a34a; }
     * { box-sizing:border-box; margin:0; padding:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
-    body { background:var(--bg); color:var(--text); padding-bottom:90px; }
+    body { background:var(--bg); color:var(--text); padding-bottom:92px; }
     body.customer-mode { padding-bottom:24px; }
+    body.multi-move-active { padding-bottom:130px; }
 
     .app-header { background:var(--primary); color:#fff; padding:10px 12px 0; position:sticky; top:0; z-index:50; box-shadow:0 2px 10px rgba(0,0,0,0.25); }
     .header-top { display:flex; justify-content:space-between; align-items:center; gap:8px; max-width:1100px; margin:0 auto 10px; }
@@ -39,6 +40,7 @@
 
     body.customer-mode .admin-only { display:none !important; }
     body.customer-mode .product-card.excluded { display:none !important; }
+    body.multi-move-active .bottom-bar { display:none !important; }
 
     .container { max-width:1100px; margin:10px auto; padding:0 8px; }
     .toolbar, .admin-bar { background:var(--card); padding:9px; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,0.06); display:flex; flex-wrap:wrap; gap:7px; align-items:center; margin-bottom:9px; }
@@ -52,6 +54,9 @@
     .cloud-pill { font-size:0.74rem; font-weight:700; padding:4px 8px; border-radius:999px; background:#e2e8f0; color:#334155; display:inline-flex; align-items:center; gap:4px; }
     .cloud-pill.live { background:#dcfce7; color:#15803d; }
 
+    .multi-move-banner { display:none; background:#fef9c3; border:1.5px solid #eab308; color:#713f12; padding:8px 10px; border-radius:10px; margin-bottom:10px; font-size:0.82rem; font-weight:700; justify-content:space-between; align-items:center; gap:8px; }
+    body.multi-move-active .multi-move-banner { display:flex; }
+
     .product-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:9px; }
     .product-grid.single-col { grid-template-columns:1fr; gap:14px; }
     @media (min-width:700px) {
@@ -59,10 +64,16 @@
       .product-grid.single-col { grid-template-columns:repeat(2,1fr); gap:18px; }
     }
 
-    .product-card { background:var(--card); border-radius:13px; border:1.5px solid #cbd5e1; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 2px 7px rgba(0,0,0,0.06); position:relative; transition:transform 0.14s,border-color 0.14s; }
+    .product-card { background:var(--card); border-radius:13px; border:1.5px solid #cbd5e1; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 2px 7px rgba(0,0,0,0.06); position:relative; transition:transform 0.14s,border-color 0.14s,box-shadow 0.14s; }
     .product-card.excluded { opacity:0.48; border-style:dashed; }
     .product-card.dragging { opacity:0.35; border:2px dashed var(--accent); transform:scale(0.96); }
     .product-card.drag-over { border:2.5px solid #eab308; box-shadow:0 0 0 4px rgba(234,179,8,0.3); transform:scale(1.02); }
+    .product-card.move-selected { border:3px solid #16a34a; box-shadow:0 0 0 3px rgba(22,163,74,0.28); background:#f0fdf4; }
+
+    .move-select-pill { display:none; pointer-events:auto; background:#fff; border:2px solid #64748b; color:#334155; font-size:0.75rem; font-weight:800; padding:3px 8px; border-radius:999px; box-shadow:0 2px 5px rgba(0,0,0,0.18); }
+    .product-card.move-selected .move-select-pill { background:#16a34a; border-color:#15803d; color:#fff; }
+    body.multi-move-active .move-select-pill { display:inline-block; }
+    body.multi-move-active .card-check { display:none; }
 
     .card-top-controls { position:absolute; top:7px; left:7px; right:7px; display:flex; justify-content:space-between; align-items:flex-start; z-index:2; pointer-events:none; }
     .card-check { pointer-events:auto; width:22px; height:22px; accent-color:var(--accent); cursor:pointer; background:#fff; border-radius:4px; }
@@ -107,6 +118,13 @@
     .bottom-inner { max-width:1100px; margin:0 auto; display:flex; gap:7px; flex-wrap:wrap; }
     .bottom-inner .btn { flex:1; min-width:98px; padding:11px 8px; font-size:0.83rem; }
 
+    .multi-move-bar { display:none; position:fixed; bottom:0; left:0; right:0; background:#0f172a; color:#fff; padding:10px; z-index:48; box-shadow:0 -4px 16px rgba(0,0,0,0.28); }
+    body.multi-move-active .multi-move-bar { display:block; }
+    .mm-inner { max-width:1100px; margin:0 auto; display:flex; flex-direction:column; gap:7px; }
+    .mm-top { display:flex; justify-content:space-between; align-items:center; font-size:0.84rem; font-weight:700; }
+    .mm-btns { display:grid; grid-template-columns:repeat(5, 1fr); gap:5px; }
+    .mm-btns .btn { padding:9px 4px; font-size:0.75rem; }
+
     .modal-backdrop { position:fixed; inset:0; background:rgba(15,23,42,0.72); display:none; align-items:center; justify-content:center; padding:12px; z-index:100; }
     .modal-backdrop.open { display:flex; }
     .modal { background:#fff; border-radius:16px; width:100%; max-width:490px; max-height:92vh; overflow-y:auto; box-shadow:0 20px 35px rgba(0,0,0,0.3); }
@@ -125,8 +143,10 @@
     .pin-input { text-align:center; font-size:1.8rem; font-weight:900; letter-spacing:14px; padding:12px; border:2px solid var(--accent); border-radius:12px; }
     .pin-error { color:var(--danger); font-size:0.84rem; font-weight:700; text-align:center; display:none; }
 
-    .viewer-img-box { width:100%; height:42vh; max-height:360px; background:#fff; border-radius:12px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:center; padding:10px; position:relative; }
-    .viewer-img-box img { max-width:100%; max-height:100%; object-fit:contain; }
+    .viewer-body { touch-action:pan-y; }
+    .viewer-img-box { width:100%; height:42vh; max-height:360px; background:#fff; border-radius:12px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:center; padding:10px; position:relative; overflow:hidden; touch-action:pan-y; user-select:none; -webkit-user-select:none; }
+    .viewer-img-box img { max-width:100%; max-height:100%; object-fit:contain; pointer-events:none; transition:transform 0.15s ease, opacity 0.12s; }
+    .swipe-hint { font-size:0.73rem; color:var(--accent); font-weight:700; text-align:center; margin-top:-4px; }
     .viewer-title { font-size:1.45rem; font-weight:900; color:var(--text); line-height:1.2; }
     .viewer-meta { font-size:0.9rem; color:var(--muted); }
     .viewer-price-card { background:#eff6ff; border:2px solid var(--accent); border-radius:12px; padding:12px 14px; }
@@ -139,7 +159,7 @@
     .empty-state { text-align:center; padding:48px 16px; background:#fff; border-radius:12px; color:var(--muted); }
 
     @media print {
-      .app-header, .toolbar, .admin-bar, .stats-bar, .bottom-bar, .card-actions, .card-check, .card-order-bar { display:none !important; }
+      .app-header, .toolbar, .admin-bar, .stats-bar, .bottom-bar, .multi-move-bar, .multi-move-banner, .card-actions, .card-check, .card-order-bar { display:none !important; }
       body { background:#fff; padding:0; }
       .product-card.excluded { display:none !important; }
       .product-grid { grid-template-columns:repeat(2,1fr) !important; gap:12px !important; }
@@ -185,10 +205,16 @@
     <div class="admin-bar admin-only">
       <div class="admin-bar-btns">
         <button class="btn btn-primary btn-sm" onclick="openProductModal()">+ Add Product</button>
+        <button class="btn btn-secondary btn-sm" id="btnMultiMove" onclick="toggleMultiMoveMode()">☑️ Multi-Move</button>
         <button class="btn btn-gold btn-sm" id="btnUploadBannerQuick" onclick="openSettingsModal()">⚙️ Shop & Cloud</button>
         <button class="btn btn-secondary btn-sm" onclick="openBulkModal()">💹 Bulk %</button>
       </div>
-      <span class="cloud-pill" id="cloudStatusPill">☁️ Cloud Connected</span>
+      <span class="cloud-pill" id="cloudStatusPill">☁️ v5.0 Live</span>
+    </div>
+
+    <div class="multi-move-banner admin-only">
+      <span>☑️ Multi-Move ON: Jin products ko move karna hai un par tap karein!</span>
+      <button class="btn btn-secondary btn-sm" onclick="toggleMultiMoveMode()">Done</button>
     </div>
 
     <div class="stats-bar admin-only">
@@ -220,7 +246,25 @@
     </div>
   </div>
 
-  <!-- 4-Digit Admin PIN Modal -->
+  <div class="multi-move-bar admin-only" id="multiMoveBar">
+    <div class="mm-inner">
+      <div class="mm-top">
+        <span id="mmCountText">0 products selected</span>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-secondary btn-sm" onclick="clearMultiMoveSelection()">Clear</button>
+          <button class="btn btn-gold btn-sm" onclick="toggleMultiMoveMode()">✓ Done</button>
+        </div>
+      </div>
+      <div class="mm-btns">
+        <button class="btn btn-whatsapp" onclick="moveSelectedToPosition(1)">⏫ Top #1</button>
+        <button class="btn btn-primary" onclick="shiftSelectedItems(-1)">⬆️ Up</button>
+        <button class="btn btn-primary" onclick="shiftSelectedItems(1)">⬇️ Down</button>
+        <button class="btn btn-secondary" onclick="promptMoveSelected()">🎯 #...</button>
+        <button class="btn btn-secondary" onclick="moveSelectedToPosition(products.length)">⏬ End</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="pinModal">
     <div class="modal" style="max-width:360px;">
       <div class="modal-header">
@@ -242,18 +286,18 @@
     </div>
   </div>
 
-  <!-- Full-Screen Product Viewer -->
   <div class="modal-backdrop" id="productViewModal">
-    <div class="modal">
+    <div class="modal" id="viewerModalBox">
       <div class="modal-header">
         <h2 id="viewHeaderBiz">IMK ENTERPRISES</h2>
         <button class="close-btn" onclick="closeModal('productViewModal')">&times;</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body viewer-body" id="viewerSwipeArea">
         <div class="viewer-img-box">
           <img id="viewImg" alt="Product" />
           <span id="viewBadge" class="card-badge" style="position:absolute; top:10px; right:10px; display:none;"></span>
         </div>
+        <div class="swipe-hint">👈 Tasveer par Left / Right swipe karein 👉</div>
         <div>
           <div class="viewer-meta" id="viewMeta"></div>
           <div class="viewer-title" id="viewTitle"></div>
@@ -268,7 +312,6 @@
     </div>
   </div>
 
-  <!-- Bulk % Modal -->
   <div class="modal-backdrop" id="bulkModal">
     <div class="modal">
       <div class="modal-header">
@@ -296,7 +339,6 @@
     </div>
   </div>
 
-  <!-- Add / Edit Product Modal -->
   <div class="modal-backdrop" id="productModal">
     <div class="modal">
       <div class="modal-header">
@@ -345,11 +387,10 @@
     </div>
   </div>
 
-  <!-- Settings & Cloud Sync Modal -->
   <div class="modal-backdrop" id="settingsModal">
     <div class="modal">
       <div class="modal-header">
-        <h2>Shop, PIN & Cloud Sync Settings</h2>
+        <h2>Shop, PIN & Cloud Sync (v5.0)</h2>
         <button class="close-btn" onclick="closeModal('settingsModal')">&times;</button>
       </div>
       <form onsubmit="saveSettings(event)">
@@ -361,7 +402,6 @@
               <button type="button" class="btn btn-primary btn-sm" style="flex:1;" onclick="pushAllToCloud()">⬆️ Upload All to Cloud</button>
               <button type="button" class="btn btn-whatsapp btn-sm" style="flex:1;" onclick="copyColleagueLink()">🔗 Share Colleague Link</button>
             </div>
-            <p style="font-size:0.71rem; color:#166534; margin-top:5px;">Pehli dafa <strong>⬆️ Upload All to Cloud</strong> dabayein taake aap ke saare purane products Cloud par chalay jayein!</p>
           </div>
 
           <div class="form-group" style="background:#fef9c3; padding:10px; border-radius:10px; border:1px solid #facc15;">
@@ -419,9 +459,7 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    // Your Firebase Realtime Database URL is pre-connected below!
     const DEFAULT_CLOUD_URL = 'https://imk-catalogue-default-rtdb.firebaseio.com';
-
     const DB_NAME = 'IMKCatalogueDB';
     const DB_VERSION = 1;
     let db = null;
@@ -445,7 +483,42 @@
 
     let products = [], currentFilteredList = [], currentViewIndex = 0;
     let isCustomerMode = true, isSingleCol = false, isAdminUnlocked = false;
+    let isMultiMoveMode = false;
+    let selectedForMove = new Set();
     let tempProductImage = '', tempLogoImage = '';
+
+    let modalStack = [];
+    let skipPopCount = 0;
+
+    function openModal(id) {
+      const el = document.getElementById(id);
+      if (!el || el.classList.contains('open')) return;
+      el.classList.add('open');
+      modalStack.push(id);
+      try { history.pushState({ imkModal: id }, '', '#view-' + id); } catch (_) {}
+    }
+
+    function closeModal(id, fromPopstate = false) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const wasOpen = el.classList.contains('open');
+      el.classList.remove('open');
+      modalStack = modalStack.filter(m => m !== id);
+
+      if (wasOpen && !fromPopstate && (location.hash === '#view-' + id || (history.state && history.state.imkModal === id))) {
+        skipPopCount++;
+        try { history.back(); } catch (_) { skipPopCount = Math.max(0, skipPopCount - 1); }
+      }
+    }
+
+    window.addEventListener('popstate', () => {
+      if (skipPopCount > 0) { skipPopCount--; return; }
+      const openModals = [...document.querySelectorAll('.modal-backdrop.open')];
+      if (openModals.length > 0) {
+        const topId = modalStack.length > 0 ? modalStack[modalStack.length - 1] : openModals[openModals.length - 1].id;
+        closeModal(topId, true);
+      }
+    });
 
     let settings = {
       key: 'appSettings',
@@ -566,16 +639,12 @@
       try {
         if (pill) pill.textContent = '⏳ Syncing...';
         const [meta, cloudSettings, cloudProducts] = await Promise.all([
-          cloudRequest('meta'),
-          cloudRequest('settings'),
-          cloudRequest('products')
+          cloudRequest('meta'), cloudRequest('settings'), cloudRequest('products')
         ]);
 
         if (!meta && !cloudProducts) {
-          if (pill) { pill.textContent = '☁️ Cloud Empty — Upload Now'; pill.classList.add('live'); }
-          if (!silent || products.length > 0) {
-            showToast('Cloud khali hai — Settings mein "⬆️ Upload All to Cloud" dabayein!', 3800);
-          }
+          if (pill) { pill.textContent = '☁️ Cloud Empty'; pill.classList.add('live'); }
+          if (!silent) showToast('Cloud khali hai — Settings mein "Upload All to Cloud" dabayein!', 3500);
           return false;
         }
 
@@ -593,8 +662,8 @@
         sortProductsList();
         populateCategoryFilter();
         renderProducts();
-        if (pill) { pill.textContent = '☁️ Cloud Live'; pill.classList.add('live'); }
-        if (!silent) showToast(`✅ Synced ${products.length} items from Cloud!`);
+        if (pill) { pill.textContent = '☁️ v5.0 Live'; pill.classList.add('live'); }
+        if (!silent) showToast(`✅ Synced ${products.length} items!`);
         return true;
       } catch (err) {
         if (pill) { pill.textContent = '⚠️ Offline / Sync Error'; pill.classList.remove('live'); }
@@ -648,32 +717,30 @@
         applySettingsUI();
         showToast(`✅ ${products.length} products Cloud par upload ho gaye!`);
       } catch (err) {
-        alert('Upload Failed: ' + (err.message || err) + '\n\nFirebase Rules check karein.');
+        alert('Upload Failed: ' + (err.message || err));
       }
     }
 
     function copyColleagueLink() {
       const urlVal = cleanCloudUrl(document.getElementById('setCloudUrl').value || getCloudUrl());
-      const basePage = window.location.href.split('?')[0];
+      const basePage = window.location.href.split('?')[0].split('#')[0];
       const link = urlVal ? `${basePage}?cloud=${encodeURIComponent(urlVal)}` : basePage;
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(link).then(() => {
-          showToast('Link copied! WhatsApp par bhej dein.', 3500);
-        }).catch(() => prompt('Copy this link:', link));
-      } else {
-        prompt('Copy this link:', link);
-      }
+        navigator.clipboard.writeText(link).then(() => showToast('Link copied! WhatsApp par bhej dein.', 3500))
+          .catch(() => prompt('Copy this link:', link));
+      } else prompt('Copy this link:', link);
     }
 
     async function manualSync() {
       const btn = document.getElementById('btnSyncNow');
       btn.disabled = true; btn.textContent = '⏳';
-      try {
-        await syncFromCloud(false);
-      } finally { btn.disabled = false; btn.textContent = '🔄 Sync'; }
+      try { await syncFromCloud(false); } finally { btn.disabled = false; btn.textContent = '🔄 Sync'; }
     }
 
     async function init() {
+      if (location.hash.startsWith('#view-')) {
+        try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+      }
       await openDB();
       const savedSettings = await dbGetAll('settings');
       if (savedSettings.length > 0) settings = { ...settings, ...savedSettings[0] };
@@ -710,6 +777,7 @@
       populateCategoryFilter();
       switchTab('customer');
       initDragAndDrop();
+      initViewerSwipe();
 
       if (getCloudUrl()) syncFromCloud(true);
     }
@@ -721,12 +789,15 @@
         const currentPin = String(settings.adminPin || '1234');
         document.getElementById('pinDefaultHint').textContent = (currentPin === '1234')
           ? 'Default PIN: 1234 (Settings mein badal sakte hain)' : '';
-        document.getElementById('pinModal').classList.add('open');
+        openModal('pinModal');
         setTimeout(() => document.getElementById('pinInput').focus(), 100);
         return;
       }
 
-      if (mode === 'customer') isAdminUnlocked = false;
+      if (mode === 'customer') {
+        isAdminUnlocked = false;
+        if (isMultiMoveMode) toggleMultiMoveMode(true);
+      }
       isCustomerMode = (mode === 'customer');
       document.body.classList.toggle('customer-mode', isCustomerMode);
       document.getElementById('tabCatalogue').classList.toggle('active', isCustomerMode);
@@ -780,7 +851,7 @@
 
       const pill = document.getElementById('cloudStatusPill');
       if (pill) {
-        if (getCloudUrl()) { pill.textContent = '☁️ Cloud Live'; pill.classList.add('live'); }
+        if (getCloudUrl()) { pill.textContent = '☁️ v5.0 Live'; pill.classList.add('live'); }
         else { pill.textContent = '📴 Local Only'; pill.classList.remove('live'); }
       }
 
@@ -800,6 +871,81 @@
       isSingleCol = !isSingleCol;
       document.getElementById('productGrid').classList.toggle('single-col', isSingleCol);
       document.getElementById('btnGridToggle').textContent = isSingleCol ? '⊞ 4-Item Grid' : '📱 1-Col Big';
+    }
+
+    function toggleMultiMoveMode(forceOff = false) {
+      isMultiMoveMode = forceOff ? false : !isMultiMoveMode;
+      document.body.classList.toggle('multi-move-active', isMultiMoveMode);
+      const btn = document.getElementById('btnMultiMove');
+      if (btn) {
+        btn.className = isMultiMoveMode ? 'btn btn-gold btn-sm' : 'btn btn-secondary btn-sm';
+        btn.textContent = isMultiMoveMode ? '✓ Multi-Move ON' : '☑️ Multi-Move';
+      }
+      if (!isMultiMoveMode) selectedForMove.clear();
+      updateMultiMoveBar();
+      renderProducts();
+    }
+
+    function toggleSelectForMove(id) {
+      if (selectedForMove.has(id)) selectedForMove.delete(id);
+      else selectedForMove.add(id);
+      updateMultiMoveBar();
+      renderProducts();
+    }
+
+    function clearMultiMoveSelection() {
+      selectedForMove.clear(); updateMultiMoveBar(); renderProducts();
+    }
+
+    function updateMultiMoveBar() {
+      const el = document.getElementById('mmCountText');
+      if (el) el.textContent = `${selectedForMove.size} product${selectedForMove.size === 1 ? '' : 's'} selected`;
+    }
+
+    function handleCardClick(idx, id) {
+      if (isMultiMoveMode) toggleSelectForMove(id);
+      else openProductViewer(idx);
+    }
+
+    async function moveSelectedToPosition(target1Based) {
+      if (selectedForMove.size === 0) { showToast('Pehle kam az kam 1 product select karein!'); return; }
+      sortProductsList();
+      const moving = products.filter(p => selectedForMove.has(p.id));
+      const staying = products.filter(p => !selectedForMove.has(p.id));
+      const insertIdx = Math.max(0, Math.min(staying.length, target1Based - 1));
+      staying.splice(insertIdx, 0, ...moving);
+      products = staying;
+      await saveNewOrder();
+      showToast(`✅ ${moving.length} item${moving.length > 1 ? 's' : ''} moved to #${insertIdx + 1}!`);
+    }
+
+    async function promptMoveSelected() {
+      if (selectedForMove.size === 0) { showToast('Pehle kam az kam 1 product select karein!'); return; }
+      const inp = prompt(`Move ${selectedForMove.size} selected item(s) to which position? (1 to ${products.length})`, '1');
+      if (!inp) return;
+      const num = parseInt(inp, 10);
+      if (isNaN(num)) return;
+      await moveSelectedToPosition(Math.max(1, Math.min(products.length, num)));
+    }
+
+    async function shiftSelectedItems(dir) {
+      if (selectedForMove.size === 0) { showToast('Pehle kam az kam 1 product select karein!'); return; }
+      sortProductsList();
+      let moved = false;
+      if (dir < 0) {
+        for (let i = 1; i < products.length; i++) {
+          if (selectedForMove.has(products[i].id) && !selectedForMove.has(products[i - 1].id)) {
+            [products[i], products[i - 1]] = [products[i - 1], products[i]]; moved = true;
+          }
+        }
+      } else {
+        for (let i = products.length - 2; i >= 0; i--) {
+          if (selectedForMove.has(products[i].id) && !selectedForMove.has(products[i + 1].id)) {
+            [products[i], products[i + 1]] = [products[i + 1], products[i]]; moved = true;
+          }
+        }
+      }
+      if (moved) await saveNewOrder();
     }
 
     function renderProducts() {
@@ -823,16 +969,20 @@
       const cur = escapeHtml(settings.currency || 'Rs.');
       grid.innerHTML = currentFilteredList.map((p, idx) => {
         const isInc = p.included !== false, pos = products.findIndex(x => x.id === p.id) + 1;
+        const isMoveSel = selectedForMove.has(p.id);
         let bCls = ''; if (p.badge === 'NEW') bCls = 'new'; if (p.badge === 'OUT OF STOCK') bCls = 'oos';
         const tpVal = p.oldPrice ? Number(p.oldPrice) : 0, saleVal = Number(p.price), offPct = calcDiscountPercent(tpVal, saleVal);
 
         return `
-          <div class="product-card ${isInc ? '' : 'excluded'}" data-id="${p.id}" data-pos="${pos}">
+          <div class="product-card ${isInc ? '' : 'excluded'} ${isMoveSel ? 'move-selected' : ''}" data-id="${p.id}" data-pos="${pos}">
             <div class="card-top-controls">
-              <input type="checkbox" class="card-check admin-only" ${isInc ? 'checked' : ''} onchange="toggleInclude('${p.id}')" />
+              <div style="display:flex; gap:4px; align-items:center;">
+                <input type="checkbox" class="card-check admin-only" ${isInc ? 'checked' : ''} onchange="toggleInclude('${p.id}')" />
+                <span class="move-select-pill admin-only" onclick="toggleSelectForMove('${p.id}')">${isMoveSel ? '✓ #' + pos : '+ #' + pos}</span>
+              </div>
               ${p.badge ? `<span class="card-badge ${bCls}">${escapeHtml(p.badge)}</span>` : '<span></span>'}
             </div>
-            <div class="card-clickable" onclick="openProductViewer(${idx})">
+            <div class="card-clickable" onclick="handleCardClick(${idx}, '${p.id}')">
               <div class="card-img-wrap">${p.image ? `<img src="${p.image}" alt="${escapeHtml(p.name)}" />` : `<span style="color:#cbd5e1;font-size:0.8rem;">No Image</span>`}</div>
               <div class="card-body">
                 ${p.category ? `<div class="card-cat">${escapeHtml(p.category)}</div>` : ''}
@@ -871,7 +1021,7 @@
         const handle = e.target.closest('.drag-handle');
         if (!handle || isCustomerMode) return;
         if (document.getElementById('searchInput').value.trim() || document.getElementById('categoryFilter').value !== 'ALL') {
-          showToast('Clear search & category filter first to reorder!'); return;
+          showToast('Clear search & category filter first to drag, ya Multi-Move use karein!'); return;
         }
         e.preventDefault();
         draggingId = handle.dataset.id; activePtr = e.pointerId;
@@ -946,12 +1096,53 @@
       await saveNewOrder();
     }
 
-    function openProductViewer(idx) {
+    function initViewerSwipe() {
+      const area = document.getElementById('viewerSwipeArea');
+      const imgEl = document.getElementById('viewImg');
+      let startX = 0, startY = 0, tracking = false, movedHoriz = false;
+
+      area.addEventListener('touchstart', (e) => {
+        if (!e.touches || e.touches.length !== 1) return;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        tracking = true; movedHoriz = false;
+        imgEl.style.transition = 'none';
+      }, { passive: true });
+
+      area.addEventListener('touchmove', (e) => {
+        if (!tracking || !e.touches || e.touches.length !== 1) return;
+        const dx = e.touches[0].clientX - startX;
+        const dy = e.touches[0].clientY - startY;
+        if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) {
+          movedHoriz = true;
+          const clamped = Math.max(-80, Math.min(80, dx * 0.45));
+          imgEl.style.transform = `translateX(${clamped}px)`;
+        }
+      }, { passive: true });
+
+      area.addEventListener('touchend', (e) => {
+        if (!tracking || !e.changedTouches || e.changedTouches.length !== 1) return;
+        tracking = false;
+        imgEl.style.transition = 'transform 0.15s ease, opacity 0.12s';
+        imgEl.style.transform = 'translateX(0)';
+        const dx = e.changedTouches[0].clientX - startX;
+        const dy = e.changedTouches[0].clientY - startY;
+        if (Math.abs(dx) > 38 && (movedHoriz || Math.abs(dx) > Math.abs(dy))) {
+          if (dx < 0) stepViewer(1);
+          else stepViewer(-1);
+        }
+      }, { passive: true });
+    }
+
+    function renderViewerContent() {
       if (currentFilteredList.length === 0) return;
-      currentViewIndex = (idx + currentFilteredList.length) % currentFilteredList.length;
+      currentViewIndex = (currentViewIndex + currentFilteredList.length) % currentFilteredList.length;
       const p = currentFilteredList[currentViewIndex], cur = escapeHtml(settings.currency || 'Rs.');
       document.getElementById('viewHeaderBiz').textContent = `${settings.bizName} (${currentViewIndex + 1}/${currentFilteredList.length})`;
-      const imgEl = document.getElementById('viewImg'); imgEl.src = p.image || ''; imgEl.style.display = p.image ? 'block' : 'none';
+      const imgEl = document.getElementById('viewImg');
+      imgEl.style.opacity = '0.35'; imgEl.src = p.image || ''; imgEl.style.display = p.image ? 'block' : 'none';
+      setTimeout(() => { imgEl.style.opacity = '1'; }, 40);
+
       const bEl = document.getElementById('viewBadge');
       if (p.badge) { bEl.textContent = p.badge; bEl.style.display = 'inline-block'; } else bEl.style.display = 'none';
       document.getElementById('viewMeta').textContent = [p.category, p.unit].filter(Boolean).join(' • ');
@@ -960,9 +1151,13 @@
       document.getElementById('viewPriceCard').innerHTML = `
         ${tpVal > 0 ? `<div class="viewer-tp"><span>T.P: <span class="${tpVal > saleVal ? 'card-tp-strike' : ''}">${cur} ${formatPrice(tpVal)}</span></span>${offPct > 0 ? `<span class="card-off-pill" style="font-size:0.85rem;padding:3px 8px;">${offPct}% OFF</span>` : ''}</div>` : ''}
         <div class="viewer-sale">Sale Price: ${cur} ${formatPrice(saleVal)}</div>`;
-      document.getElementById('productViewModal').classList.add('open');
     }
-    function stepViewer(dir) { openProductViewer(currentViewIndex + dir); }
+
+    function openProductViewer(idx) {
+      if (currentFilteredList.length === 0) return;
+      currentViewIndex = idx; renderViewerContent(); openModal('productViewModal');
+    }
+    function stepViewer(dir) { currentViewIndex += dir; renderViewerContent(); }
     function shareSingleProductWhatsApp() {
       const p = currentFilteredList[currentViewIndex]; if (!p) return;
       const cur = settings.currency || 'Rs.';
@@ -1073,7 +1268,7 @@
         document.getElementById('prodUnit').value = p.unit || ''; document.getElementById('prodCategory').value = p.category || ''; document.getElementById('prodBadge').value = p.badge || '';
         if (p.image) { tempProductImage = p.image; document.getElementById('prodImgPreviewBox').innerHTML = `<img src="${p.image}" />`; }
       } else document.getElementById('productModalTitle').textContent = 'Add New Product';
-      document.getElementById('productModal').classList.add('open');
+      openModal('productModal');
     }
 
     async function saveProduct(e) {
@@ -1111,6 +1306,7 @@
     async function deleteProduct(id) {
       if (!confirm('Delete this product?')) return;
       await dbDelete('products', id); products = products.filter(p => p.id !== id);
+      selectedForMove.delete(id); updateMultiMoveBar();
       await cloudDeleteProduct(id);
       sortProductsList(); await saveNewOrder(); populateCategoryFilter(); showToast('Deleted.');
     }
@@ -1131,7 +1327,7 @@
       }
     }
 
-    function openBulkModal() { document.getElementById('bulkModal').classList.add('open'); }
+    function openBulkModal() { openModal('bulkModal'); }
     async function applyBulkPercentage(e) {
       e.preventDefault();
       const cat = document.getElementById('bulkCategory').value, act = document.getElementById('bulkAction').value, pct = parseFloat(document.getElementById('bulkPercent').value);
@@ -1163,7 +1359,7 @@
       tempLogoImage = settings.logo || '';
       document.getElementById('logoPreviewBox').innerHTML = tempLogoImage ? `<img src="${tempLogoImage}" />` : '<span style="color:#cbd5e1;font-size:0.8rem;">No banner selected</span>';
       checkLogoResolution(tempLogoImage, updateLogoQualityNote);
-      document.getElementById('settingsModal').classList.add('open');
+      openModal('settingsModal');
     }
     function removeLogo() { tempLogoImage = ''; document.getElementById('logoPreviewBox').innerHTML = '<span style="color:#cbd5e1;font-size:0.8rem;">No banner uploaded</span>'; document.getElementById('logoInput').value = ''; updateLogoQualityNote(0, 0); }
 
@@ -1187,10 +1383,9 @@
     }
 
     async function saveLayoutPref() { settings.pdfPerPage = parseInt(document.getElementById('pdfLayoutSelect').value, 10) || 4; await dbPut('settings', settings); }
-    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
     async function clearAllProducts() {
       if (!confirm('Delete ALL products?')) return;
-      await dbClear('products'); products = []; localStorage.setItem('imk_seeded', '1');
+      await dbClear('products'); products = []; selectedForMove.clear(); updateMultiMoveBar(); localStorage.setItem('imk_seeded', '1');
       if (getCloudUrl()) cloudRequest('products', 'DELETE').catch(() => {});
       populateCategoryFilter(); renderProducts(); closeModal('settingsModal'); showToast('Cleared.');
     }
