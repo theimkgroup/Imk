@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#04153d" />
-  <title>IMK ENTERPRISES - Catalogue & Orders v6.0</title>
+  <title>IMK ENTERPRISES - Catalogue & Team v7.0</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js"></script>
   <style>
     :root { --primary:#04153d; --accent:#0f3478; --bg:#f1f5f9; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#cbd5e1; --danger:#dc2626; --whatsapp:#16a34a; }
@@ -145,8 +145,11 @@
     .calc-hint { font-size:0.75rem; color:var(--accent); font-weight:600; margin-top:4px; }
     .modal-footer { padding:12px 14px; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:8px; background:#f8fafc; flex-wrap:wrap; }
 
-    .pin-input { text-align:center; font-size:1.8rem; font-weight:900; letter-spacing:14px; padding:12px; border:2px solid var(--accent); border-radius:12px; }
-    .pin-error { color:var(--danger); font-size:0.84rem; font-weight:700; text-align:center; display:none; }
+    .auth-err { color:var(--danger); font-size:0.84rem; font-weight:700; text-align:center; display:none; }
+    .user-row { border:1px solid #cbd5e1; border-radius:10px; padding:9px; background:#f8fafc; display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:7px; }
+    .user-row.blocked { opacity:0.55; background:#fee2e2; border-color:#fca5a5; }
+    .user-badge { font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:999px; background:#dcfce7; color:#15803d; }
+    .user-row.blocked .user-badge { background:#dc2626; color:#fff; }
 
     .viewer-body { touch-action:pan-y; }
     .viewer-img-box { width:100%; height:40vh; max-height:340px; background:#fff; border-radius:12px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:center; padding:10px; position:relative; overflow:hidden; touch-action:pan-y; user-select:none; -webkit-user-select:none; }
@@ -210,20 +213,22 @@
     <div class="top-tabs">
       <button class="top-tab active" id="tabCustomer" onclick="switchTab('customer')">🛍️ Catalogue</button>
       <button class="top-tab" id="tabOrder" onclick="switchTab('order')">🛒 Take Order</button>
-      <button class="top-tab" id="tabAdmin" onclick="switchTab('admin')">🔒 Edit & PDF</button>
+      <button class="top-tab" id="tabAdmin" onclick="switchTab('admin')">👑 Admin & PDF</button>
     </div>
   </header>
 
   <main class="container">
+    <!-- Booker / Order Bar -->
     <div class="order-top-box order-only">
-      <div style="flex:1.4; min-width:160px;">
+      <div style="width:100%; display:flex; justify-content:space-between; align-items:center; font-size:0.78rem; font-weight:700; color:#1e3a8a;">
+        <span id="loggedBookerBadge">👤 Logged in: Admin</span>
+        <button class="btn btn-danger btn-sm" style="padding:3px 8px; font-size:0.72rem;" onclick="logoutBooker()">🚪 Logout</button>
+      </div>
+      <div style="flex:1.4; min-width:150px;">
         <input type="text" id="activeShopName" list="savedShopsList" placeholder="🏪 Shop Name (e.g. Bismillah Store)" oninput="saveActiveShopDraft()" />
         <datalist id="savedShopsList"></datalist>
       </div>
-      <div style="flex:1; min-width:110px;">
-        <input type="text" id="activeBookerName" placeholder="👤 Booker Name" oninput="saveActiveBooker()" />
-      </div>
-      <button class="btn btn-primary btn-sm" onclick="openDayEndModal()">📊 Today Orders (<span id="todayOrderBadge">0</span>)</button>
+      <button class="btn btn-primary btn-sm" onclick="openDayEndModal()">📊 My Orders (<span id="todayOrderBadge">0</span>)</button>
     </div>
 
     <div class="toolbar">
@@ -232,14 +237,17 @@
       <button class="btn btn-secondary btn-sm" id="btnGridToggle" onclick="toggleAppGrid()">📱 1-Col Big</button>
     </div>
 
+    <!-- Admin Bar -->
     <div class="admin-bar admin-only">
       <div class="admin-bar-btns">
-        <button class="btn btn-primary btn-sm" onclick="openProductModal()">+ Add Product</button>
+        <button class="btn btn-primary btn-sm" onclick="openProductModal()">+ Add Item</button>
+        <button class="btn btn-whatsapp btn-sm" onclick="openUsersModal()">👥 Bookers (<span id="bookersCountLbl">0</span>)</button>
         <button class="btn btn-secondary btn-sm" id="btnMultiMove" onclick="toggleMultiMoveMode()">☑️ Multi-Move</button>
         <button class="btn btn-gold btn-sm" id="btnUploadBannerQuick" onclick="openSettingsModal()">⚙️ Shop & Cloud</button>
         <button class="btn btn-secondary btn-sm" onclick="openDayEndModal()">📊 Day-End</button>
+        <button class="btn btn-danger btn-sm" onclick="logoutAdmin()">🔒 Lock Admin</button>
       </div>
-      <span class="cloud-pill" id="cloudStatusPill">☁️ v6.0 Live</span>
+      <span class="cloud-pill" id="cloudStatusPill">☁️ v7.0 Live</span>
     </div>
 
     <div class="multi-move-banner admin-only">
@@ -303,24 +311,67 @@
     </div>
   </div>
 
-  <div class="modal-backdrop" id="pinModal">
-    <div class="modal" style="max-width:360px;">
-      <div class="modal-header"><h2>🔐 4-Digit PIN Required</h2><button class="close-btn" onclick="closeModal('pinModal')">&times;</button></div>
-      <form onsubmit="verifyPin(event)">
+  <!-- Admin Login Modal (Gmail + Secret Password) -->
+  <div class="modal-backdrop" id="adminLoginModal">
+    <div class="modal" style="max-width:390px;">
+      <div class="modal-header"><h2>👑 Admin Login (Full Rights)</h2><button class="close-btn" onclick="closeModal('adminLoginModal')">&times;</button></div>
+      <form onsubmit="verifyAdminLogin(event)">
         <div class="modal-body">
-          <p style="font-size:0.88rem; color:#334155; text-align:center;">Order / Edit kholne ke liye apna <strong>4-digit PIN</strong> likhein:</p>
-          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="pinInput" class="pin-input" placeholder="••••" required autocomplete="off" />
-          <div id="pinError" class="pin-error">❌ Galat PIN! Dobara koshish karein.</div>
-          <div id="pinDefaultHint" style="font-size:0.75rem; color:var(--muted); text-align:center;"></div>
+          <div class="form-group"><label>Admin Gmail ID *</label><input type="email" id="admEmailInput" placeholder="theimkgroup@gmail.com" required autocomplete="email" /></div>
+          <div class="form-group"><label>Secret Password *</label><input type="password" id="admPassInput" placeholder="••••••" required autocomplete="off" /></div>
+          <div id="admLoginErr" class="auth-err">❌ Email ya Secret Password galat hai!</div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" onclick="closeModal('pinModal')">Cancel</button>
-          <button type="submit" class="btn btn-primary">🔓 Unlock</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal('adminLoginModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">🔓 Login Admin</button>
         </div>
       </form>
     </div>
   </div>
 
+  <!-- Booker Login Modal (User ID + Password, Stays Logged In) -->
+  <div class="modal-backdrop" id="bookerLoginModal">
+    <div class="modal" style="max-width:380px;">
+      <div class="modal-header"><h2>🔑 Booker Login (Take Order)</h2><button class="close-btn" onclick="closeModal('bookerLoginModal')">&times;</button></div>
+      <form onsubmit="verifyBookerLogin(event)">
+        <div class="modal-body">
+          <p style="font-size:0.82rem; color:#475569;">Apni Booker ID aur Password daalein (ek baar login kafi hai):</p>
+          <div class="form-group"><label>User ID *</label><input type="text" id="bkUserInput" placeholder="e.g. ali" required autocomplete="username" /></div>
+          <div class="form-group"><label>Password *</label><input type="password" id="bkPassInput" placeholder="••••" required autocomplete="off" /></div>
+          <div id="bkLoginErr" class="auth-err">❌ ID/Password galat hai ya account block hai!</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('bookerLoginModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">🔓 Login Booker</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Manage Bookers / Users Modal (Admin Only) -->
+  <div class="modal-backdrop" id="usersModal">
+    <div class="modal" style="max-width:520px;">
+      <div class="modal-header"><h2>👥 Manage Bookers (Users)</h2><button class="close-btn" onclick="closeModal('usersModal')">&times;</button></div>
+      <div class="modal-body">
+        <form onsubmit="createBookerUser(event)" style="background:#eff6ff; padding:10px; border-radius:10px; border:1px solid #93c5fd; display:flex; flex-direction:column; gap:8px;">
+          <strong style="font-size:0.86rem; color:var(--primary);">+ Create New Booker ID</strong>
+          <div class="form-row">
+            <div class="form-group"><label>Booker Full Name *</label><input type="text" id="newBkName" placeholder="e.g. Ali Raza" required /></div>
+            <div class="form-group"><label>Area / Route</label><input type="text" id="newBkArea" placeholder="e.g. Shaheenabad" /></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Login User ID *</label><input type="text" id="newBkUser" placeholder="e.g. ali01" required /></div>
+            <div class="form-group"><label>Password *</label><input type="text" id="newBkPass" placeholder="e.g. 1122" required /></div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">✅ Create & Sync Booker</button>
+        </form>
+        <div style="font-size:0.82rem; font-weight:700; color:#334155;">Saved Bookers List:</div>
+        <div id="bookersListContainer" style="max-height:260px; overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Product Detail Zoom Viewer -->
   <div class="modal-backdrop" id="productViewModal">
     <div class="modal" id="viewerModalBox">
       <div class="modal-header"><h2 id="viewHeaderBiz">IMK ENTERPRISES</h2><button class="close-btn" onclick="closeModal('productViewModal')">&times;</button></div>
@@ -339,6 +390,7 @@
     </div>
   </div>
 
+  <!-- Save Shop Order Modal -->
   <div class="modal-backdrop" id="orderCartModal">
     <div class="modal">
       <div class="modal-header"><h2 id="orderCartTitle">🛒 Save Shop Order</h2><button class="close-btn" onclick="closeModal('orderCartModal')">&times;</button></div>
@@ -346,10 +398,14 @@
         <div class="modal-body">
           <input type="hidden" id="editingOrderId" />
           <div class="form-row">
-            <div class="form-group"><label>Shop Name *</label><input type="text" id="cartShopName" list="savedShopsList" placeholder="e.g. Bismillah Store" required /></div>
-            <div class="form-group"><label>Booker / Salesman</label><input type="text" id="cartBookerName" placeholder="e.g. Waqas" /></div>
+            <div class="form-group"><label>Shop Name *</label><input type="text" id="cartShopName" list="savedShopsList" placeholder="e.g. Bismillah Store" required oninput="autoFillShopInfo()" /></div>
+            <div class="form-group"><label>Booker (Auto)</label><input type="text" id="cartBookerName" readonly style="background:#f1f5f9;" /></div>
           </div>
-          <div id="cartLinesContainer" style="max-height:240px; overflow-y:auto;"></div>
+          <div class="form-row">
+            <div class="form-group"><label>Area / Bazaar</label><input type="text" id="cartShopArea" placeholder="e.g. Shaheenabad" /></div>
+            <div class="form-group"><label>Contact Number</label><input type="tel" id="cartShopPhone" placeholder="e.g. 0300-1234567" /></div>
+          </div>
+          <div id="cartLinesContainer" style="max-height:210px; overflow-y:auto;"></div>
           <div class="form-row">
             <div class="form-group"><label>Extra Bill Discount (<span class="currencyLabel">Rs.</span>)</label><input type="number" step="any" min="0" id="cartBillDiscount" value="0" oninput="recalcCartModalTotals()" /></div>
             <div class="form-group"><label>Payment Type</label><select id="cartPaymentType"><option value="Cash">Cash</option><option value="Credit (Udhaar)">Credit (Udhaar)</option><option value="Pending">Pending</option></select></div>
@@ -369,12 +425,16 @@
     </div>
   </div>
 
+  <!-- Day-End Reports Modal -->
   <div class="modal-backdrop" id="dayEndModal">
     <div class="modal" style="max-width:560px;">
       <div class="modal-header"><h2>📊 Day-End Orders & Reports</h2><button class="close-btn" onclick="closeModal('dayEndModal')">&times;</button></div>
       <div class="modal-body">
-        <div style="display:flex; gap:8px; align-items:center;">
-          <input type="date" id="reportDateInput" style="flex:1;" onchange="loadOrdersForDate()" />
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+          <input type="date" id="reportDateInput" style="flex:1; min-width:130px;" onchange="loadOrdersForDate(true)" />
+          <select id="reportBookerFilter" style="flex:1; min-width:130px; display:none;" onchange="renderDayEndUI()">
+            <option value="ALL">All Bookers</option>
+          </select>
           <button class="btn btn-secondary btn-sm" onclick="loadOrdersForDate(true)">🔄 Refresh</button>
         </div>
         <div class="summary-grid">
@@ -393,7 +453,7 @@
             <button class="btn btn-danger btn-sm" style="flex:1; background:#dc2626; color:#fff;" onclick="downloadShopWisePDF()">📕 Save PDF</button>
             <button class="btn btn-whatsapp btn-sm" style="flex:1;" onclick="shareShopWiseWhatsApp()">📲 WhatsApp</button>
           </div>
-          <div id="shopOrdersList" style="max-height:280px; overflow-y:auto;"></div>
+          <div id="shopOrdersList" style="max-height:260px; overflow-y:auto;"></div>
         </div>
         <div id="reportSkuPanel" style="display:none;">
           <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
@@ -401,12 +461,13 @@
             <button class="btn btn-danger btn-sm" style="flex:1; background:#dc2626; color:#fff;" onclick="downloadSkuPDF()">📕 Save PDF</button>
             <button class="btn btn-whatsapp btn-sm" style="flex:1;" onclick="shareSkuWhatsApp()">📲 WhatsApp</button>
           </div>
-          <div id="skuSummaryTableWrap" style="max-height:280px; overflow-y:auto;"></div>
+          <div id="skuSummaryTableWrap" style="max-height:260px; overflow-y:auto;"></div>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Add / Edit Product Modal -->
   <div class="modal-backdrop" id="productModal">
     <div class="modal">
       <div class="modal-header"><h2 id="productModalTitle">Add Product</h2><button class="close-btn" onclick="closeModal('productModal')">&times;</button></div>
@@ -442,22 +503,26 @@
     </div>
   </div>
 
+  <!-- Settings Modal -->
   <div class="modal-backdrop" id="settingsModal">
     <div class="modal">
-      <div class="modal-header"><h2>Shop, PIN & Cloud Sync (v6.0)</h2><button class="close-btn" onclick="closeModal('settingsModal')">&times;</button></div>
+      <div class="modal-header"><h2>Shop, Admin Pass & Cloud (v7.0)</h2><button class="close-btn" onclick="closeModal('settingsModal')">&times;</button></div>
       <form onsubmit="saveSettings(event)">
         <div class="modal-body">
           <div class="form-group" style="background:#dcfce7; padding:10px; border-radius:10px; border:1px solid #22c55e;">
-            <label style="color:#14532d;">☁️ Live Cloud Sync (Dono Phones Par Same Data)</label>
+            <label style="color:#14532d;">☁️ Live Cloud Sync (All Bookers & Products)</label>
             <input type="url" id="setCloudUrl" placeholder="https://imk-catalogue-default-rtdb.firebaseio.com" />
             <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:7px;">
               <button type="button" class="btn btn-primary btn-sm" style="flex:1;" onclick="pushAllToCloud()">⬆️ Upload All to Cloud</button>
-              <button type="button" class="btn btn-whatsapp btn-sm" style="flex:1;" onclick="copyColleagueLink()">🔗 Share Colleague Link</button>
+              <button type="button" class="btn btn-whatsapp btn-sm" style="flex:1;" onclick="copyColleagueLink()">🔗 Share App Link</button>
             </div>
           </div>
           <div class="form-group" style="background:#fef9c3; padding:10px; border-radius:10px; border:1px solid #facc15;">
-            <label style="color:#713f12;">🔐 Admin 4-Digit Password / PIN</label>
-            <input type="text" inputmode="numeric" pattern="\d{4}" maxlength="4" id="setAdminPin" placeholder="1234" required />
+            <label style="color:#713f12;">👑 Admin Gmail & Secret Password</label>
+            <div class="form-row">
+              <input type="email" id="setAdminEmail" readonly style="background:#fef3c7; font-size:0.8rem;" />
+              <input type="text" id="setAdminPin" placeholder="888999" required />
+            </div>
           </div>
           <div class="form-group" style="background:#eff6ff; padding:10px; border-radius:10px; border:1px solid #93c5fd;">
             <label style="color:#04153d;">IMK Banner / Logo (Full HD)</label>
@@ -494,6 +559,8 @@
 
   <script>
     const DEFAULT_CLOUD_URL = 'https://imk-catalogue-default-rtdb.firebaseio.com';
+    const ADMIN_EMAIL = 'theimkgroup@gmail.com';
+    const DEFAULT_ADMIN_PASS = '888999';
     const DB_NAME = 'IMKCatalogueDB', DB_VERSION = 2;
     let db = null;
 
@@ -516,7 +583,10 @@
     function dbClear(s) { return new Promise((res, rej) => { const r = db.transaction(s, 'readwrite').objectStore(s).clear(); r.onsuccess = () => res(); r.onerror = () => rej(r.error); }); }
 
     let products = [], currentFilteredList = [], currentViewIndex = 0;
-    let activeTab = 'customer', pendingTab = 'admin', isSingleCol = false, isAdminUnlocked = false;
+    let activeTab = 'customer', isSingleCol = false;
+    let isAdminUnlocked = localStorage.getItem('imk_admin_session') === '1';
+    let bookerSession = null;
+    try { bookerSession = JSON.parse(localStorage.getItem('imk_booker_session') || 'null'); } catch (_) { bookerSession = null; }
     let isMultiMoveMode = false, selectedForMove = new Set();
     let tempProductImage = '', tempLogoImage = '';
     let cartItems = {}, currentEditingOrderId = '', dayEndOrders = [], submitMode = 'save';
@@ -547,11 +617,16 @@
       key: 'appSettings', bizName: 'IMK ENTERPRISES', city: 'Shaheenabad Gujranwala Pakistan',
       phone: '03015140572 / 03030930726 / 03016460454', currency: 'Rs.', themeColor: '#04153d',
       offerTitle: 'WHOLESALE CATALOGUE', footerNote: 'IMK ENTERPRISES • Shaheenabad Gujranwala • Order on WhatsApp',
-      logo: '', pdfPerPage: 4, adminPin: '1234', cloudUrl: DEFAULT_CLOUD_URL
+      logo: '', pdfPerPage: 4, adminEmail: ADMIN_EMAIL, adminPin: DEFAULT_ADMIN_PASS, v7PassSet: true, cloudUrl: DEFAULT_CLOUD_URL
     };
 
     function cleanCloudUrl(u) { return (u || '').trim().replace(/\/+$/, ''); }
     function getCloudUrl() { return cleanCloudUrl(settings.cloudUrl || DEFAULT_CLOUD_URL); }
+
+    // Bookers Map Helpers (Stored in localStorage + synced to Firebase /bookers.json)
+    function getBookersMap() { try { return JSON.parse(localStorage.getItem('imk_bookers_v1') || '{}'); } catch (_) { return {}; } }
+    function saveBookersMap(m) { localStorage.setItem('imk_bookers_v1', JSON.stringify(m)); updateBookersCountUI(); }
+    function updateBookersCountUI() { const el = document.getElementById('bookersCountLbl'); if (el) el.textContent = Object.keys(getBookersMap()).length; }
 
     function drawRoundRect(ctx, x, y, w, h, r) {
       if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
@@ -560,22 +635,18 @@
       ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
     }
 
-    function sortProductsList() {
-      products.sort((a, b) => (a.sortOrder !== undefined ? Number(a.sortOrder) : (a.createdAt || 0)) - (b.sortOrder !== undefined ? Number(b.sortOrder) : (b.createdAt || 0)));
-    }
+    function sortProductsList() { products.sort((a, b) => (a.sortOrder !== undefined ? Number(a.sortOrder) : (a.createdAt || 0)) - (b.sortOrder !== undefined ? Number(b.sortOrder) : (b.createdAt || 0))); }
 
     function makeSampleImage(bgColor, title, sub) {
-      const c = document.createElement('canvas'); c.width = 400; c.height = 400;
-      const ctx = c.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 400, 400);
-      ctx.fillStyle = bgColor; drawRoundRect(ctx, 40, 30, 320, 340, 24); ctx.fill();
-      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 38px Arial'; ctx.textAlign = 'center';
-      ctx.fillText(title, 200, 190); ctx.font = '24px Arial'; ctx.fillText(sub, 200, 238);
+      const c = document.createElement('canvas'); c.width = 400; c.height = 400; const ctx = c.getContext('2d');
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 400, 400); ctx.fillStyle = bgColor; drawRoundRect(ctx, 40, 30, 320, 340, 24); ctx.fill();
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 38px Arial'; ctx.textAlign = 'center'; ctx.fillText(title, 200, 190); ctx.font = '24px Arial'; ctx.fillText(sub, 200, 238);
       return c.toDataURL('image/jpeg', 0.85);
     }
 
     function useBuiltInHDBanner() {
-      const W = 1600, H = 680, c = document.createElement('canvas'); c.width = W; c.height = H;
-      const ctx = c.getContext('2d'), bg = ctx.createRadialGradient(W/2, H*0.42, 40, W/2, H*0.5, W*0.65);
+      const W = 1600, H = 680, c = document.createElement('canvas'); c.width = W; c.height = H; const ctx = c.getContext('2d');
+      const bg = ctx.createRadialGradient(W/2, H*0.42, 40, W/2, H*0.5, W*0.65);
       bg.addColorStop(0, '#0ea5e9'); bg.addColorStop(0.32, '#1d4ed8'); bg.addColorStop(0.7, '#061a4d'); bg.addColorStop(1, '#020b24');
       ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
       ctx.strokeStyle = 'rgba(125, 211, 252, 0.28)'; ctx.lineWidth = 3;
@@ -583,33 +654,22 @@
       ctx.beginPath(); ctx.ellipse(W/2, H*0.42, 275, 110, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.beginPath(); ctx.ellipse(W/2, H*0.42, 135, 275, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.save(); ctx.shadowColor = 'rgba(56, 189, 248, 0.75)'; ctx.shadowBlur = 45;
-      const cardGrad = ctx.createLinearGradient(470, 110, 1130, 580);
-      cardGrad.addColorStop(0, '#0b2559'); cardGrad.addColorStop(0.5, '#071739'); cardGrad.addColorStop(1, '#0d2e6e');
-      ctx.fillStyle = cardGrad; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 4;
-      drawRoundRect(ctx, 470, 105, 660, 470, 26); ctx.fill(); ctx.stroke(); ctx.restore();
+      const cardGrad = ctx.createLinearGradient(470, 110, 1130, 580); cardGrad.addColorStop(0, '#0b2559'); cardGrad.addColorStop(0.5, '#071739'); cardGrad.addColorStop(1, '#0d2e6e');
+      ctx.fillStyle = cardGrad; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 4; drawRoundRect(ctx, 470, 105, 660, 470, 26); ctx.fill(); ctx.stroke(); ctx.restore();
       const gx = W/2, gy = 215, gr = 74, gGrad = ctx.createRadialGradient(gx-20, gy-20, 10, gx, gy, gr);
       gGrad.addColorStop(0, '#bae6fd'); gGrad.addColorStop(0.6, '#38bdf8'); gGrad.addColorStop(1, '#0369a1');
       ctx.fillStyle = gGrad; ctx.beginPath(); ctx.arc(gx, gy, gr, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.ellipse(gx, gy, gr, 28, -0.2, 0, Math.PI*2); ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(gx, gy, 34, gr, 0, 0, Math.PI*2); ctx.stroke();
+      ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(gx, gy, gr, 28, -0.2, 0, Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.ellipse(gx, gy, 34, gr, 0, 0, Math.PI*2); ctx.stroke();
       ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = 10; ctx.beginPath(); ctx.ellipse(gx, gy+8, 125, 36, -0.25, 0.15, Math.PI*1.15); ctx.stroke();
-      ctx.textAlign = 'center'; const txtGrad = ctx.createLinearGradient(0, 310, 0, 415);
-      txtGrad.addColorStop(0, '#ffffff'); txtGrad.addColorStop(1, '#cbd5e1');
+      ctx.textAlign = 'center'; const txtGrad = ctx.createLinearGradient(0, 310, 0, 415); txtGrad.addColorStop(0, '#ffffff'); txtGrad.addColorStop(1, '#cbd5e1');
       ctx.fillStyle = txtGrad; ctx.font = 'bold 132px Arial'; ctx.fillText('IMK', W/2, 410);
       ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 44px Arial'; ctx.fillText('E N T E R P R I S E S', W/2, 468);
-      ctx.fillStyle = '#facc15'; ctx.fillRect(W/2 - 170, 492, 340, 4);
-      ctx.fillStyle = '#fef08a'; ctx.font = 'bold 28px Arial'; ctx.fillText('DRIVEN TO GROW.', W/2, 538);
-      ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff'; ctx.font = 'bold 48px Arial'; ctx.fillText('DRIVEN TO', 55, 165);
-      ctx.fillStyle = '#38bdf8'; ctx.font = 'bold 72px Arial'; ctx.fillText('GROW', 55, 240);
-      ctx.textAlign = 'right'; ctx.fillStyle = '#e0f2fe'; ctx.font = 'bold 38px Arial';
-      ctx.fillText('STRONGER', W - 55, 145); ctx.fillText('TOGETHER', W - 55, 192);
+      ctx.fillStyle = '#facc15'; ctx.fillRect(W/2 - 170, 492, 340, 4); ctx.fillStyle = '#fef08a'; ctx.font = 'bold 28px Arial'; ctx.fillText('DRIVEN TO GROW.', W/2, 538);
+      ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff'; ctx.font = 'bold 48px Arial'; ctx.fillText('DRIVEN TO', 55, 165); ctx.fillStyle = '#38bdf8'; ctx.font = 'bold 72px Arial'; ctx.fillText('GROW', 55, 240);
+      ctx.textAlign = 'right'; ctx.fillStyle = '#e0f2fe'; ctx.font = 'bold 38px Arial'; ctx.fillText('STRONGER', W - 55, 145); ctx.fillText('TOGETHER', W - 55, 192);
       ctx.fillStyle = '#38bdf8'; ctx.fillText('BRIGHTER', W - 55, 239); ctx.fillText('TOMORROW', W - 55, 286);
-      ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(0, H - 56, W, 56);
-      ctx.textAlign = 'center'; ctx.fillStyle = '#bae6fd'; ctx.font = 'bold 26px Arial';
-      ctx.fillText('FMCG WHOLESALE DISTRIBUTION  •  GUJRANWALA  •  PAKISTAN', W/2, H - 20);
-      const url = c.toDataURL('image/jpeg', 0.96);
-      tempLogoImage = url; document.getElementById('logoPreviewBox').innerHTML = `<img src="${url}" />`;
+      ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(0, H - 56, W, 56); ctx.textAlign = 'center'; ctx.fillStyle = '#bae6fd'; ctx.font = 'bold 26px Arial'; ctx.fillText('FMCG WHOLESALE DISTRIBUTION  •  GUJRANWALA  •  PAKISTAN', W/2, H - 20);
+      const url = c.toDataURL('image/jpeg', 0.96); tempLogoImage = url; document.getElementById('logoPreviewBox').innerHTML = `<img src="${url}" />`;
       updateLogoQualityNote(W, H); showToast('HD Banner ready! Tap "Save Settings" below.');
     }
 
@@ -635,15 +695,26 @@
       if (!base) { if (pill) { pill.textContent = '📴 Local Only'; pill.classList.remove('live'); } return false; }
       try {
         if (pill) pill.textContent = '⏳ Syncing...';
-        const [meta, cloudSettings, cloudProducts] = await Promise.all([cloudRequest('meta'), cloudRequest('settings'), cloudRequest('products')]);
+        const [meta, cloudSettings, cloudProducts, cloudShops, cloudBookers] = await Promise.all([
+          cloudRequest('meta'), cloudRequest('settings'), cloudRequest('products'), cloudRequest('shops'), cloudRequest('bookers')
+        ]);
         if (!meta && !cloudProducts) {
           if (pill) { pill.textContent = '☁️ Cloud Empty'; pill.classList.add('live'); }
-          if (!silent) showToast('Cloud khali hai — Settings mein "Upload All to Cloud" dabayein!', 3500);
+          if (!silent) showToast('Cloud khali hai — Admin mein "Upload All to Cloud" dabayein!', 3500);
           return false;
         }
         if (cloudSettings && typeof cloudSettings === 'object') {
-          settings = { ...settings, ...cloudSettings, key: 'appSettings', cloudUrl: base };
+          const keepV7Pass = !cloudSettings.v7PassSet ? DEFAULT_ADMIN_PASS : cloudSettings.adminPin;
+          settings = { ...settings, ...cloudSettings, key: 'appSettings', cloudUrl: base, adminEmail: ADMIN_EMAIL, adminPin: keepV7Pass };
           await dbPut('settings', settings); applySettingsUI();
+        }
+        if (cloudShops && typeof cloudShops === 'object') {
+          localStorage.setItem('imk_saved_shops_v2', JSON.stringify({ ...getSavedShopsMap(), ...cloudShops }));
+          renderShopsDatalist();
+        }
+        if (cloudBookers && typeof cloudBookers === 'object') {
+          saveBookersMap(cloudBookers);
+          validateActiveBookerSession(cloudBookers);
         }
         const list = cloudProducts ? Object.values(cloudProducts) : [];
         await dbClear('products');
@@ -651,13 +722,30 @@
         products = list; localStorage.setItem('imk_seeded', '1');
         sortProductsList(); populateCategoryFilter(); renderProducts();
         await refreshTodayOrdersCount();
-        if (pill) { pill.textContent = '☁️ v6.0 Live'; pill.classList.add('live'); }
+        if (pill) { pill.textContent = '☁️ v7.0 Live'; pill.classList.add('live'); }
         if (!silent) showToast(`✅ Synced ${products.length} items!`);
         return true;
       } catch (err) {
         if (pill) { pill.textContent = '⚠️ Offline'; pill.classList.remove('live'); }
         if (!silent) alert('Cloud Sync Error: ' + (err.message || err));
         return false;
+      }
+    }
+
+    function validateActiveBookerSession(bookersMap) {
+      if (!bookerSession || isAdminUnlocked) return;
+      const b = bookersMap[bookerSession.id];
+      if (!b || b.active === false || String(b.password) !== String(bookerSession.password)) {
+        bookerSession = null;
+        localStorage.removeItem('imk_booker_session');
+        if (activeTab === 'order') {
+          alert('Admin ne aap ki ID block kar di hai ya Password tabdeel kar diya hai.');
+          switchTab('customer');
+        }
+      } else {
+        bookerSession.name = b.name; bookerSession.area = b.area || '';
+        localStorage.setItem('imk_booker_session', JSON.stringify(bookerSession));
+        updateLoggedBookerUI();
       }
     }
 
@@ -669,20 +757,21 @@
     async function pushAllToCloud() {
       const inputUrl = cleanCloudUrl(document.getElementById('setCloudUrl').value || DEFAULT_CLOUD_URL);
       if (!inputUrl) { alert('Pehle Firebase URL paste karein!'); return; }
-      settings.cloudUrl = inputUrl; await dbPut('settings', settings);
+      settings.cloudUrl = inputUrl; settings.v7PassSet = true; await dbPut('settings', settings);
       showToast('Uploading to Cloud...', 4500);
       try {
         const prodMap = {}; for (const p of products) prodMap[p.id] = p;
         await cloudRequest('settings', 'PUT', settings);
         await cloudRequest('products', 'PUT', prodMap);
+        await cloudRequest('shops', 'PUT', getSavedShopsMap());
+        await cloudRequest('bookers', 'PUT', getBookersMap());
         await cloudRequest('meta', 'PUT', { initialized: true, updatedAt: Date.now() });
-        applySettingsUI(); showToast(`✅ ${products.length} products Cloud par upload ho gaye!`);
+        applySettingsUI(); showToast(`✅ ${products.length} products & Bookers Cloud par upload ho gaye!`);
       } catch (err) { alert('Upload Failed: ' + (err.message || err)); }
     }
 
     function copyColleagueLink() {
-      const urlVal = cleanCloudUrl(document.getElementById('setCloudUrl').value || getCloudUrl());
-      const basePage = window.location.href.split('?')[0].split('#')[0];
+      const urlVal = cleanCloudUrl(document.getElementById('setCloudUrl').value || getCloudUrl()), basePage = window.location.href.split('?')[0].split('#')[0];
       const link = urlVal ? `${basePage}?cloud=${encodeURIComponent(urlVal)}` : basePage;
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(() => showToast('Link copied!')).catch(() => prompt('Copy link:', link));
       else prompt('Copy link:', link);
@@ -693,17 +782,46 @@
       try { await syncFromCloud(false); } finally { btn.disabled = false; btn.textContent = '🔄 Sync'; }
     }
 
-    function getSavedShops() { try { return JSON.parse(localStorage.getItem('imk_saved_shops') || '[]'); } catch (_) { return []; } }
-    function addSavedShop(name) { if (!name) return; const l = getSavedShops(); if (!l.includes(name)) { l.unshift(name); localStorage.setItem('imk_saved_shops', JSON.stringify(l.slice(0, 200))); } renderShopsDatalist(); }
-    function renderShopsDatalist() { const dl = document.getElementById('savedShopsList'); if (dl) dl.innerHTML = getSavedShops().map(s => `<option value="${escapeHtml(s)}">`).join(''); }
+    function getSavedShopsMap() {
+      try {
+        const v2 = JSON.parse(localStorage.getItem('imk_saved_shops_v2') || '{}'), old = JSON.parse(localStorage.getItem('imk_saved_shops') || '[]');
+        if (Array.isArray(old)) old.forEach(n => { if (n && !v2[n.toLowerCase()]) v2[n.toLowerCase()] = { name: n, area: '', phone: '' }; });
+        return v2;
+      } catch (_) { return {}; }
+    }
+    function saveShopDirectoryEntry(name, area, phone) {
+      if (!name) return;
+      const map = getSavedShopsMap(), key = name.trim().toLowerCase().replace(/[.#$\[\]\/]/g, '_');
+      map[key] = { name: name.trim(), area: (area || '').trim(), phone: (phone || '').trim() };
+      localStorage.setItem('imk_saved_shops_v2', JSON.stringify(map)); renderShopsDatalist();
+      if (getCloudUrl()) cloudRequest(`shops/${key}`, 'PUT', map[key]).catch(() => {});
+    }
+    function renderShopsDatalist() {
+      const dl = document.getElementById('savedShopsList'); if (!dl) return;
+      const list = Object.values(getSavedShopsMap()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      dl.innerHTML = list.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml([s.area, s.phone].filter(Boolean).join(' • '))}</option>`).join('');
+    }
+    function findShopInfo(name) {
+      if (!name) return null;
+      const map = getSavedShopsMap(), key = name.trim().toLowerCase().replace(/[.#$\[\]\/]/g, '_');
+      return map[key] || Object.values(map).find(s => (s.name || '').toLowerCase() === name.trim().toLowerCase()) || null;
+    }
+    function autoFillShopInfo() {
+      const info = findShopInfo(document.getElementById('cartShopName').value);
+      if (info) { if (info.area) document.getElementById('cartShopArea').value = info.area; if (info.phone) document.getElementById('cartShopPhone').value = info.phone; }
+    }
     function saveActiveShopDraft() { localStorage.setItem('imk_draft_shop', document.getElementById('activeShopName').value.trim()); updateCartBottomBar(); }
-    function saveActiveBooker() { localStorage.setItem('imk_booker_name', document.getElementById('activeBookerName').value.trim()); }
 
     async function init() {
       if (location.hash.startsWith('#view-')) { try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {} }
       await openDB();
       const savedSettings = await dbGetAll('settings');
       if (savedSettings.length > 0) settings = { ...settings, ...savedSettings[0] }; else await dbPut('settings', settings);
+
+      if (!localStorage.getItem('imk_v7_pass_init')) {
+        settings.adminEmail = ADMIN_EMAIL; settings.adminPin = DEFAULT_ADMIN_PASS; settings.v7PassSet = true;
+        localStorage.setItem('imk_v7_pass_init', '1'); await dbPut('settings', settings);
+      }
 
       const params = new URLSearchParams(window.location.search), paramCloud = cleanCloudUrl(params.get('cloud'));
       if (paramCloud && paramCloud.startsWith('https://')) { settings.cloudUrl = paramCloud; await dbPut('settings', settings); }
@@ -720,21 +838,43 @@
       for (let i = 0; i < products.length; i++) { if (products[i].sortOrder !== i + 1) { products[i].sortOrder = i + 1; changed = true; } }
       if (changed) { for (const p of products) await dbPut('products', p); }
 
-      document.getElementById('activeBookerName').value = localStorage.getItem('imk_booker_name') || '';
       document.getElementById('activeShopName').value = localStorage.getItem('imk_draft_shop') || '';
-      renderShopsDatalist(); applySettingsUI(); populateCategoryFilter(); switchTab('customer');
+      renderShopsDatalist(); updateBookersCountUI(); updateLoggedBookerUI();
+      applySettingsUI(); populateCategoryFilter(); switchTab('customer');
       initDragAndDrop(); initViewerSwipe(); refreshTodayOrdersCount();
       if (getCloudUrl()) syncFromCloud(true);
     }
 
+    function getActiveBookerInfo() {
+      if (bookerSession) return { id: bookerSession.id, name: bookerSession.name };
+      if (isAdminUnlocked) return { id: 'admin', name: 'Admin' };
+      return null;
+    }
+
+    function updateLoggedBookerUI() {
+      const info = getActiveBookerInfo(), lbl = document.getElementById('loggedBookerBadge');
+      if (lbl) lbl.textContent = info ? `👤 Logged in: ${info.name}${info.id === 'admin' ? ' (Admin)' : ''}` : '👤 Not Logged In';
+    }
+
+    // Persistent Login Auth for Admin & 10 Bookers
     function switchTab(mode) {
-      if ((mode === 'admin' || mode === 'order') && !isAdminUnlocked) {
-        pendingTab = mode; document.getElementById('pinInput').value = ''; document.getElementById('pinError').style.display = 'none';
-        document.getElementById('pinDefaultHint').textContent = (String(settings.adminPin || '1234') === '1234') ? 'Default PIN: 1234 (Settings mein badal sakte hain)' : '';
-        openModal('pinModal'); setTimeout(() => document.getElementById('pinInput').focus(), 100); return;
+      if (mode === 'admin' && !isAdminUnlocked) {
+        document.getElementById('admEmailInput').value = '';
+        document.getElementById('admPassInput').value = '';
+        document.getElementById('admLoginErr').style.display = 'none';
+        openModal('adminLoginModal');
+        setTimeout(() => document.getElementById('admEmailInput').focus(), 100);
+        return;
       }
-      if (mode === 'customer') { isAdminUnlocked = false; if (isMultiMoveMode) toggleMultiMoveMode(true); }
-      else if (mode === 'order' && isMultiMoveMode) toggleMultiMoveMode(true);
+      if (mode === 'order' && !bookerSession && !isAdminUnlocked) {
+        document.getElementById('bkUserInput').value = '';
+        document.getElementById('bkPassInput').value = '';
+        document.getElementById('bkLoginErr').style.display = 'none';
+        openModal('bookerLoginModal');
+        setTimeout(() => document.getElementById('bkUserInput').focus(), 100);
+        return;
+      }
+      if (mode !== 'admin' && isMultiMoveMode) toggleMultiMoveMode(true);
 
       activeTab = mode;
       document.body.classList.remove('tab-customer', 'tab-order', 'tab-admin'); document.body.classList.add('tab-' + mode);
@@ -742,16 +882,130 @@
       document.getElementById('tabOrder').classList.toggle('active', mode === 'order');
       document.getElementById('tabAdmin').classList.toggle('active', mode === 'admin');
       if (mode === 'customer') { isSingleCol = false; document.getElementById('productGrid').classList.remove('single-col'); document.getElementById('btnGridToggle').textContent = '📱 1-Col Big'; }
-      renderProducts(); updateCartBottomBar();
+      updateLoggedBookerUI(); renderProducts(); updateCartBottomBar(); refreshTodayOrdersCount();
     }
 
-    function verifyPin(e) {
+    function verifyAdminLogin(e) {
       e.preventDefault();
-      if (document.getElementById('pinInput').value.trim() === String(settings.adminPin || '1234')) {
-        isAdminUnlocked = true; closeModal('pinModal'); switchTab(pendingTab || 'admin'); showToast('🔓 Unlocked!');
+      const em = document.getElementById('admEmailInput').value.trim().toLowerCase();
+      const pw = document.getElementById('admPassInput').value.trim();
+      const targetEmail = (settings.adminEmail || ADMIN_EMAIL).toLowerCase();
+      const targetPass = String(settings.adminPin || DEFAULT_ADMIN_PASS);
+      if (em === targetEmail && pw === targetPass) {
+        isAdminUnlocked = true; localStorage.setItem('imk_admin_session', '1');
+        closeModal('adminLoginModal'); switchTab('admin'); showToast('👑 Admin Unlocked!');
       } else {
-        document.getElementById('pinError').style.display = 'block'; document.getElementById('pinInput').value = ''; document.getElementById('pinInput').focus();
+        document.getElementById('admLoginErr').style.display = 'block';
       }
+    }
+
+    function logoutAdmin() {
+      isAdminUnlocked = false; localStorage.removeItem('imk_admin_session');
+      switchTab('customer'); showToast('🔒 Admin Locked!');
+    }
+
+    async function verifyBookerLogin(e) {
+      e.preventDefault();
+      const u = document.getElementById('bkUserInput').value.trim().toLowerCase();
+      const p = document.getElementById('bkPassInput').value.trim();
+      const errEl = document.getElementById('bkLoginErr');
+      errEl.style.display = 'none';
+
+      // Pull fresh bookers from cloud before verifying
+      if (getCloudUrl()) {
+        try {
+          const cb = await cloudRequest('bookers');
+          if (cb && typeof cb === 'object') saveBookersMap(cb);
+        } catch (_) {}
+      }
+
+      const map = getBookersMap();
+      const found = Object.values(map).find(b => (b.username || '').toLowerCase() === u && String(b.password) === p && b.active !== false);
+      if (found) {
+        bookerSession = { id: found.id, username: found.username, name: found.name, area: found.area || '', password: found.password };
+        localStorage.setItem('imk_booker_session', JSON.stringify(bookerSession));
+        closeModal('bookerLoginModal'); switchTab('order'); showToast(`🔓 Welcome ${found.name}!`);
+      } else {
+        errEl.style.display = 'block';
+      }
+    }
+
+    function logoutBooker() {
+      bookerSession = null; localStorage.removeItem('imk_booker_session');
+      clearCart();
+      if (!isAdminUnlocked) switchTab('customer');
+      else { updateLoggedBookerUI(); showToast('Booker logged out (Admin active)'); }
+    }
+
+    // Manage Bookers (Admin Only)
+    async function openUsersModal() {
+      if (getCloudUrl()) {
+        try { const cb = await cloudRequest('bookers'); if (cb && typeof cb === 'object') saveBookersMap(cb); } catch (_) {}
+      }
+      renderBookersList(); openModal('usersModal');
+    }
+
+    async function createBookerUser(e) {
+      e.preventDefault();
+      const name = document.getElementById('newBkName').value.trim();
+      const area = document.getElementById('newBkArea').value.trim();
+      const username = document.getElementById('newBkUser').value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+      const password = document.getElementById('newBkPass').value.trim();
+      if (!username || !password || !name) { alert('Name, User ID (letters/numbers) aur Password zaroori hai!'); return; }
+
+      const map = getBookersMap();
+      const id = 'bk_' + username;
+      if (map[id] && !confirm(`User ID "${username}" pehle se maujood hai. Kya password/details update karein?`)) return;
+
+      const userObj = { id, username, name, area, password, active: true, createdAt: Date.now() };
+      map[id] = userObj;
+      saveBookersMap(map);
+      if (getCloudUrl()) {
+        try { await cloudRequest(`bookers/${id}`, 'PUT', userObj); } catch (_) { showToast('Saved locally (Cloud offline)'); }
+      }
+      e.target.reset(); renderBookersList(); showToast(`✅ Booker "${name}" ready!`);
+    }
+
+    function renderBookersList() {
+      const box = document.getElementById('bookersListContainer');
+      const list = Object.values(getBookersMap()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      if (list.length === 0) { box.innerHTML = '<p style="color:var(--muted);text-align:center;padding:14px;">Abhi koi Booker nahi banaya gaya. Upar form se banayein.</p>'; return; }
+      box.innerHTML = list.map(b => `
+        <div class="user-row ${b.active === false ? 'blocked' : ''}">
+          <div style="min-width:0;">
+            <strong>${escapeHtml(b.name)}</strong> <span class="user-badge">${b.active === false ? 'BLOCKED' : 'ACTIVE'}</span>
+            <div style="font-size:0.76rem; color:#334155;">ID: <strong>${escapeHtml(b.username)}</strong> | Pass: <strong>${escapeHtml(b.password)}</strong>${b.area ? ' | ' + escapeHtml(b.area) : ''}</div>
+          </div>
+          <div style="display:flex; gap:4px; flex-shrink:0;">
+            <button class="btn btn-secondary btn-sm" onclick="changeBookerPass('${b.id}')" title="Change Password">🔑</button>
+            <button class="btn btn-secondary btn-sm" onclick="toggleBookerBlock('${b.id}')">${b.active === false ? '✅' : '🚫'}</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteBookerUser('${b.id}')">🗑️</button>
+          </div>
+        </div>`).join('');
+    }
+
+    async function changeBookerPass(id) {
+      const map = getBookersMap(), b = map[id]; if (!b) return;
+      const np = prompt(`"${b.name}" (${b.username}) ka naya Password likhein:`, b.password);
+      if (!np || !np.trim()) return;
+      b.password = np.trim(); map[id] = b; saveBookersMap(map);
+      if (getCloudUrl()) cloudRequest(`bookers/${id}`, 'PUT', b).catch(() => {});
+      renderBookersList(); showToast('Password updated!');
+    }
+
+    async function toggleBookerBlock(id) {
+      const map = getBookersMap(), b = map[id]; if (!b) return;
+      b.active = b.active === false ? true : false; map[id] = b; saveBookersMap(map);
+      if (getCloudUrl()) cloudRequest(`bookers/${id}`, 'PUT', b).catch(() => {});
+      renderBookersList(); showToast(b.active ? 'Booker Enabled!' : 'Booker Blocked!');
+    }
+
+    async function deleteBookerUser(id) {
+      const map = getBookersMap(), b = map[id]; if (!b) return;
+      if (!confirm(`Delete Booker "${b.name}"?`)) return;
+      delete map[id]; saveBookersMap(map);
+      if (getCloudUrl()) cloudRequest(`bookers/${id}`, 'DELETE').catch(() => {});
+      renderBookersList(); showToast('Deleted.');
     }
 
     function escapeHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -768,7 +1022,7 @@
       const logoEl = document.getElementById('headerLogo');
       if (settings.logo) { logoEl.src = settings.logo; logoEl.style.display = 'block'; } else logoEl.style.display = 'none';
       const pill = document.getElementById('cloudStatusPill');
-      if (pill) { if (getCloudUrl()) { pill.textContent = '☁️ v6.0 Live'; pill.classList.add('live'); } else { pill.textContent = '📴 Local Only'; pill.classList.remove('live'); } }
+      if (pill) { if (getCloudUrl()) { pill.textContent = '☁️ v7.0 Live'; pill.classList.add('live'); } else { pill.textContent = '📴 Local Only'; pill.classList.remove('live'); } }
       document.getElementById('pdfLayoutSelect').value = String(settings.pdfPerPage || 4);
       document.querySelectorAll('.currencyLabel').forEach(el => el.textContent = settings.currency || 'Rs.');
     }
@@ -823,7 +1077,7 @@
       document.getElementById('selectedCountText').textContent = `${products.filter(p => p.included !== false).length} of ${products.length}`;
 
       if (currentFilteredList.length === 0) {
-        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p style="font-size:1.05rem;font-weight:600;margin-bottom:8px;">No products found</p><p style="font-size:0.88rem;">Tap <strong>"🔄 Sync"</strong> or check <strong>"🔒 Edit & PDF"</strong>.</p></div>`;
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p style="font-size:1.05rem;font-weight:600;margin-bottom:8px;">No products found</p><p style="font-size:0.88rem;">Tap <strong>"🔄 Sync"</strong> or check <strong>"👑 Admin & PDF"</strong>.</p></div>`;
         return;
       }
       const cur = escapeHtml(settings.currency || 'Rs.');
@@ -877,19 +1131,12 @@
       if (cartItems[id].qty === 0) delete cartItems[id];
       updateCartBottomBar(); renderProducts();
     }
-    function setCartQty(id, val) {
-      const q = Math.max(0, parseInt(val, 10) || 0);
-      if (q === 0) delete cartItems[id]; else if (cartItems[id]) cartItems[id].qty = q;
-      updateCartBottomBar(); renderProducts();
-    }
-    function clearCart() { cartItems = {}; currentEditingOrderId = ''; document.getElementById('cartBillDiscount').value = 0; updateCartBottomBar(); renderProducts(); }
+    function setCartQty(id, val) { const q = Math.max(0, parseInt(val, 10) || 0); if (q === 0) delete cartItems[id]; else if (cartItems[id]) cartItems[id].qty = q; updateCartBottomBar(); renderProducts(); }
+    function clearCart() { cartItems = {}; currentEditingOrderId = ''; document.getElementById('cartBillDiscount').value = 0; document.getElementById('cartShopArea').value = ''; document.getElementById('cartShopPhone').value = ''; updateCartBottomBar(); renderProducts(); }
 
     function calcCartTotals(itemsArr, billDisc) {
       let gross = 0, itemDisc = 0, totalQty = 0, totalFree = 0;
-      for (const it of itemsArr) {
-        const q = Number(it.qty) || 0, f = Number(it.freeQty) || 0, bp = Number(it.basePrice) || 0, less = Number(it.lessPerUnit) || 0;
-        gross += q * bp; itemDisc += q * less; totalQty += q; totalFree += f;
-      }
+      for (const it of itemsArr) { const q = Number(it.qty) || 0, f = Number(it.freeQty) || 0, bp = Number(it.basePrice) || 0, less = Number(it.lessPerUnit) || 0; gross += q * bp; itemDisc += q * less; totalQty += q; totalFree += f; }
       const bDisc = Number(billDisc) || 0, totalDisc = itemDisc + bDisc;
       return { gross, itemDisc, billDisc: bDisc, totalDisc, net: Math.max(0, gross - totalDisc), totalQty, totalFree };
     }
@@ -902,10 +1149,17 @@
 
     function openOrderCartModal() {
       if (Object.keys(cartItems).length === 0) { showToast('Pehle kam az kam 1 product + Order karein!'); return; }
+      const bk = getActiveBookerInfo();
       document.getElementById('editingOrderId').value = currentEditingOrderId;
       document.getElementById('orderCartTitle').textContent = currentEditingOrderId ? '✏️ Update Shop Order' : '🛒 Save Shop Order';
-      document.getElementById('cartShopName').value = document.getElementById('activeShopName').value.trim();
-      document.getElementById('cartBookerName').value = document.getElementById('activeBookerName').value.trim();
+      const sName = document.getElementById('activeShopName').value.trim();
+      document.getElementById('cartShopName').value = sName;
+      document.getElementById('cartBookerName').value = bk ? bk.name : 'Admin';
+      if (!currentEditingOrderId) {
+        const info = findShopInfo(sName);
+        document.getElementById('cartShopArea').value = info ? (info.area || '') : (bookerSession ? (bookerSession.area || '') : '');
+        document.getElementById('cartShopPhone').value = info ? (info.phone || '') : '';
+      }
       renderCartLines(); openModal('orderCartModal');
     }
 
@@ -936,11 +1190,7 @@
       if (field === 'qty' && cartItems[id].qty === 0) cartItems[id].qty = 1;
       recalcCartModalTotals();
       const cur = settings.currency || 'Rs.', tops = document.querySelectorAll('#cartLinesContainer .cart-line-top div div');
-      Object.values(cartItems).forEach((it, idx) => {
-        if (!tops[idx]) return;
-        const nr = Math.max(0, Number(it.basePrice) - Number(it.lessPerUnit || 0));
-        tops[idx].innerHTML = `Rate: ${cur} ${formatPrice(it.basePrice)} → Net: <strong>${cur} ${formatPrice(nr)}</strong> = <strong>${cur} ${formatPrice(nr * it.qty)}</strong>`;
-      });
+      Object.values(cartItems).forEach((it, idx) => { if (!tops[idx]) return; const nr = Math.max(0, Number(it.basePrice) - Number(it.lessPerUnit || 0)); tops[idx].innerHTML = `Rate: ${cur} ${formatPrice(it.basePrice)} → Net: <strong>${cur} ${formatPrice(nr)}</strong> = <strong>${cur} ${formatPrice(nr * it.qty)}</strong>`; });
     }
 
     function removeCartLine(id) { delete cartItems[id]; if (Object.keys(cartItems).length === 0) closeModal('orderCartModal'); else renderCartLines(); updateCartBottomBar(); renderProducts(); }
@@ -954,34 +1204,39 @@
 
     async function saveShopOrder(e) {
       e.preventDefault();
-      const shopName = document.getElementById('cartShopName').value.trim(), bookerName = document.getElementById('cartBookerName').value.trim();
+      const shopName = document.getElementById('cartShopName').value.trim(), shopArea = document.getElementById('cartShopArea').value.trim(), shopPhone = document.getElementById('cartShopPhone').value.trim();
       if (!shopName) { alert('Shop Name likhein!'); return; }
-      const items = Object.values(cartItems).map(x => ({ ...x })); if (items.length === 0) return;
-      const bDisc = parseFloat(document.getElementById('cartBillDiscount').value) || 0, paymentType = document.getElementById('cartPaymentType').value;
-      const t = calcCartTotals(items, bDisc);
-      const dateStr = currentEditingOrderId ? ((dayEndOrders.find(o => o.id === currentEditingOrderId) || {}).date || getTodayDateStr()) : getTodayDateStr();
-      const order = { id: currentEditingOrderId || ('ord-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5)), date: dateStr, createdAt: Date.now(), shopName, bookerName, paymentType, billDiscount: bDisc, items, grossTotal: t.gross, itemDiscountTotal: t.itemDisc, totalDiscount: t.totalDisc, netTotal: t.net };
-      await dbPut('orders', order); addSavedShop(shopName);
-      if (bookerName) localStorage.setItem('imk_booker_name', bookerName);
+      const items = Object.values(cartItems).map(x => ({ ...x })); if (!items.length) return;
+      const bk = getActiveBookerInfo() || { id: 'admin', name: 'Admin' };
+      const existingOrd = currentEditingOrderId ? dayEndOrders.find(o => o.id === currentEditingOrderId) : null;
+      const bDisc = parseFloat(document.getElementById('cartBillDiscount').value) || 0, paymentType = document.getElementById('cartPaymentType').value, t = calcCartTotals(items, bDisc);
+      const dateStr = existingOrd ? existingOrd.date : getTodayDateStr();
+      const order = {
+        id: currentEditingOrderId || ('ord-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5)),
+        date: dateStr, createdAt: existingOrd ? existingOrd.createdAt : Date.now(),
+        shopName, shopArea, shopPhone,
+        bookerId: existingOrd ? (existingOrd.bookerId || bk.id) : bk.id,
+        bookerName: existingOrd ? (existingOrd.bookerName || bk.name) : bk.name,
+        paymentType, billDiscount: bDisc, items, grossTotal: t.gross, itemDiscountTotal: t.itemDisc, totalDiscount: t.totalDisc, netTotal: t.net
+      };
+      await dbPut('orders', order); saveShopDirectoryEntry(shopName, shopArea, shopPhone);
       if (getCloudUrl()) cloudRequest(`orders/${dateStr}/${order.id}`, 'PUT', order).catch(() => showToast('Saved locally (Cloud offline)'));
       closeModal('orderCartModal'); cartItems = {}; currentEditingOrderId = '';
-      document.getElementById('activeShopName').value = ''; localStorage.setItem('imk_draft_shop', ''); document.getElementById('cartBillDiscount').value = 0;
+      document.getElementById('activeShopName').value = ''; localStorage.setItem('imk_draft_shop', '');
+      document.getElementById('cartBillDiscount').value = 0; document.getElementById('cartShopArea').value = ''; document.getElementById('cartShopPhone').value = '';
       updateCartBottomBar(); renderProducts(); refreshTodayOrdersCount();
       if (submitMode === 'wa') sendSingleOrderWhatsApp(order); else showToast(`✅ Order saved for ${shopName}!`);
     }
 
     function sendSingleOrderWhatsApp(order) {
       const cur = settings.currency || 'Rs.';
-      let msg = `*ORDER SLIP - ${settings.bizName}*\n🏪 Shop: *${order.shopName}*\n📅 Date: ${order.date} | ${order.paymentType}\n`;
+      let msg = `*ORDER SLIP - ${settings.bizName}*\n🏪 Shop: *${order.shopName}*\n`;
+      if (order.shopArea) msg += `📍 Area: ${order.shopArea}\n`;
+      if (order.shopPhone) msg += `📞 Contact: ${order.shopPhone}\n`;
+      msg += `📅 Date: ${order.date} | ${order.paymentType}\n`;
       if (order.bookerName) msg += `👤 Booker: ${order.bookerName}\n`;
       msg += `------------------------\n`;
-      order.items.forEach((it, idx) => {
-        const nr = Math.max(0, Number(it.basePrice) - Number(it.lessPerUnit || 0));
-        msg += `${idx + 1}. *${it.name}*\n   ${it.qty} × ${cur} ${formatPrice(nr)}`;
-        if (it.lessPerUnit > 0) msg += ` (Less ${cur} ${formatPrice(it.lessPerUnit)})`;
-        if (it.freeQty > 0) msg += ` + ${it.freeQty} Free`;
-        msg += ` = *${cur} ${formatPrice(nr * it.qty)}*\n`;
-      });
+      order.items.forEach((it, idx) => { const nr = Math.max(0, Number(it.basePrice) - Number(it.lessPerUnit || 0)); msg += `${idx + 1}. *${it.name}*\n   ${it.qty} × ${cur} ${formatPrice(nr)}`; if (it.lessPerUnit > 0) msg += ` (Less ${cur} ${formatPrice(it.lessPerUnit)})`; if (it.freeQty > 0) msg += ` + ${it.freeQty} Free`; msg += ` = *${cur} ${formatPrice(nr * it.qty)}*\n`; });
       msg += `------------------------\n`;
       if (order.totalDiscount > 0) msg += `Total Discount: - ${cur} ${formatPrice(order.totalDiscount)}\n`;
       msg += `💰 *NET BILL: ${cur} ${formatPrice(order.netTotal)}*\n`;
@@ -989,11 +1244,21 @@
       window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
     }
 
+    function filterOrdersForRole(ordersList) {
+      if (isAdminUnlocked) {
+        const bf = document.getElementById('reportBookerFilter') ? document.getElementById('reportBookerFilter').value : 'ALL';
+        return bf === 'ALL' ? ordersList : ordersList.filter(o => (o.bookerId || o.bookerName || '') === bf);
+      }
+      if (bookerSession) return ordersList.filter(o => o.bookerId === bookerSession.id);
+      return [];
+    }
+
     async function refreshTodayOrdersCount() {
       const today = getTodayDateStr(), allLocal = await dbGetAll('orders');
-      let count = allLocal.filter(o => o.date === today).length;
-      if (getCloudUrl()) { try { const co = await cloudRequest(`orders/${today}`); if (co) count = Object.keys(co).length; } catch (_) {} }
-      const b = document.getElementById('todayOrderBadge'); if (b) b.textContent = count;
+      let list = allLocal.filter(o => o.date === today);
+      if (getCloudUrl()) { try { const co = await cloudRequest(`orders/${today}`); if (co) list = Object.values(co); } catch (_) {} }
+      const visible = isAdminUnlocked ? list : (bookerSession ? list.filter(o => o.bookerId === bookerSession.id) : []);
+      const b = document.getElementById('todayOrderBadge'); if (b) b.textContent = visible.length;
     }
 
     async function openDayEndModal() {
@@ -1015,12 +1280,22 @@
       }
       const all = await dbGetAll('orders');
       dayEndOrders = all.filter(o => o.date === dateStr).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+      const bfSel = document.getElementById('reportBookerFilter');
+      if (isAdminUnlocked) {
+        bfSel.style.display = 'block';
+        const cur = bfSel.value, seen = {};
+        dayEndOrders.forEach(o => { const k = o.bookerId || o.bookerName || 'admin'; seen[k] = o.bookerName || 'Admin'; });
+        bfSel.innerHTML = '<option value="ALL">All Bookers</option>' + Object.entries(seen).map(([k, n]) => `<option value="${escapeHtml(k)}">${escapeHtml(n)}</option>`).join('');
+        if (seen[cur]) bfSel.value = cur;
+      } else bfSel.style.display = 'none';
+
       renderDayEndUI();
     }
 
-    function buildSkuSummaryList() {
+    function buildSkuSummaryList(list) {
       const map = {};
-      for (const ord of dayEndOrders) for (const it of (ord.items || [])) {
+      for (const ord of list) for (const it of (ord.items || [])) {
         const key = it.productId || it.name;
         if (!map[key]) map[key] = { name: it.name, unit: it.unit || '', qty: 0, freeQty: 0, discount: 0, net: 0 };
         const q = Number(it.qty) || 0, f = Number(it.freeQty) || 0, bp = Number(it.basePrice) || 0, less = Number(it.lessPerUnit) || 0;
@@ -1030,19 +1305,19 @@
     }
 
     function renderDayEndUI() {
-      const cur = escapeHtml(settings.currency || 'Rs.');
+      const visible = filterOrdersForRole(dayEndOrders), cur = escapeHtml(settings.currency || 'Rs.');
       let tQ = 0, tF = 0, tD = 0, tN = 0;
-      for (const o of dayEndOrders) { tD += Number(o.totalDiscount || 0); tN += Number(o.netTotal || 0); for (const it of (o.items || [])) { tQ += Number(it.qty || 0); tF += Number(it.freeQty || 0); } }
-      document.getElementById('deShopsCount').textContent = dayEndOrders.length;
+      for (const o of visible) { tD += Number(o.totalDiscount || 0); tN += Number(o.netTotal || 0); for (const it of (o.items || [])) { tQ += Number(it.qty || 0); tF += Number(it.freeQty || 0); } }
+      document.getElementById('deShopsCount').textContent = visible.length;
       document.getElementById('deQtyCount').textContent = tF > 0 ? `${tQ} (+${tF} Free)` : tQ;
       document.getElementById('deDiscTotal').textContent = `${cur} ${formatPrice(tD)}`;
       document.getElementById('deNetTotal').textContent = `${cur} ${formatPrice(tN)}`;
 
       const shopBox = document.getElementById('shopOrdersList');
-      shopBox.innerHTML = dayEndOrders.length === 0 ? '<p style="text-align:center;color:var(--muted);padding:20px;">Is date par koi order save nahi hai.</p>' : dayEndOrders.map((o, idx) => `
+      shopBox.innerHTML = visible.length === 0 ? '<p style="text-align:center;color:var(--muted);padding:20px;">Is date par koi order save nahi hai.</p>' : visible.map((o, idx) => `
         <div class="order-card">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px; margin-bottom:4px;">
-            <div><strong>${idx + 1}. ${escapeHtml(o.shopName)}</strong><div style="font-size:0.72rem; color:var(--muted);">${escapeHtml(o.paymentType || 'Cash')}${o.bookerName ? ' • ' + escapeHtml(o.bookerName) : ''}</div></div>
+            <div><strong>${idx + 1}. ${escapeHtml(o.shopName)}</strong><div style="font-size:0.72rem; color:var(--muted);">${[o.shopArea, o.shopPhone, o.paymentType || 'Cash', o.bookerName].filter(Boolean).map(escapeHtml).join(' • ')}</div></div>
             <strong style="color:var(--accent);">${cur} ${formatPrice(o.netTotal)}</strong>
           </div>
           <div style="font-size:0.78rem; color:#334155; margin-bottom:6px;">
@@ -1056,7 +1331,7 @@
           </div>
         </div>`).join('');
 
-      const skus = buildSkuSummaryList(), skuWrap = document.getElementById('skuSummaryTableWrap');
+      const skus = buildSkuSummaryList(visible), skuWrap = document.getElementById('skuSummaryTableWrap');
       skuWrap.innerHTML = skus.length === 0 ? '<p style="text-align:center;color:var(--muted);padding:20px;">No SKUs for this date.</p>' : `
         <table class="sku-table"><thead><tr><th>#</th><th>Product</th><th>Qty</th><th>Free</th><th>Total</th><th>Net</th></tr></thead><tbody>
         ${skus.map((s, idx) => `<tr><td>${idx + 1}</td><td><strong>${escapeHtml(s.name)}</strong>${s.discount > 0 ? `<br><span style="color:#dc2626;font-size:0.7rem;">Less: ${cur}${formatPrice(s.discount)}</span>` : ''}</td><td>${s.qty}</td><td>${s.freeQty}</td><td><strong>${s.qty + s.freeQty}</strong></td><td><strong>${cur} ${formatPrice(s.net)}</strong></td></tr>`).join('')}
@@ -1067,9 +1342,11 @@
     function editSavedOrder(id) {
       const o = dayEndOrders.find(x => x.id === id); if (!o) return;
       currentEditingOrderId = o.id; cartItems = {}; for (const it of (o.items || [])) cartItems[it.productId] = { ...it };
-      document.getElementById('activeShopName').value = o.shopName; document.getElementById('activeBookerName').value = o.bookerName || '';
+      document.getElementById('activeShopName').value = o.shopName;
       document.getElementById('cartBillDiscount').value = o.billDiscount || 0; document.getElementById('cartPaymentType').value = o.paymentType || 'Cash';
       closeModal('dayEndModal'); switchTab('order'); openOrderCartModal();
+      document.getElementById('cartShopArea').value = o.shopArea || ''; document.getElementById('cartShopPhone').value = o.shopPhone || '';
+      document.getElementById('cartBookerName').value = o.bookerName || 'Admin';
     }
     async function deleteSavedOrder(id) {
       if (!confirm('Delete this shop order?')) return;
@@ -1079,11 +1356,15 @@
     }
 
     function buildShopWiseText() {
-      const dateStr = document.getElementById('reportDateInput').value || getTodayDateStr(), cur = settings.currency || 'Rs.';
-      let txt = `${settings.bizName} - SHOP-WISE ORDERS\nDate: ${dateStr} | Shops: ${dayEndOrders.length}\n========================================\n\n`, gD = 0, gN = 0;
-      dayEndOrders.forEach((o, idx) => {
+      const visible = filterOrdersForRole(dayEndOrders), dateStr = document.getElementById('reportDateInput').value || getTodayDateStr(), cur = settings.currency || 'Rs.';
+      let txt = `${settings.bizName} - SHOP-WISE ORDERS\nDate: ${dateStr} | Shops: ${visible.length}\n========================================\n\n`, gD = 0, gN = 0;
+      visible.forEach((o, idx) => {
         gD += Number(o.totalDiscount || 0); gN += Number(o.netTotal || 0);
-        txt += `${idx + 1}. SHOP: ${o.shopName} [${o.paymentType || 'Cash'}]${o.bookerName ? ` (Booker: ${o.bookerName})` : ''}\n`;
+        txt += `${idx + 1}. SHOP: ${o.shopName} [${o.paymentType || 'Cash'}]`;
+        if (o.shopArea) txt += ` | Area: ${o.shopArea}`;
+        if (o.shopPhone) txt += ` | Tel: ${o.shopPhone}`;
+        if (o.bookerName) txt += ` (Booker: ${o.bookerName})`;
+        txt += `\n`;
         (o.items || []).forEach(it => { const nr = Math.max(0, Number(it.basePrice) - Number(it.lessPerUnit || 0)); txt += `   - ${it.name}: ${it.qty}${it.freeQty > 0 ? ` + ${it.freeQty} Free` : ''} x ${cur} ${formatPrice(nr)}${it.lessPerUnit > 0 ? ` (Less ${it.lessPerUnit})` : ''} = ${cur} ${formatPrice(nr * it.qty)}\n`; });
         if (o.billDiscount > 0) txt += `   Extra Bill Less: -${cur} ${formatPrice(o.billDiscount)}\n`;
         txt += `   NET BILL: ${cur} ${formatPrice(o.netTotal)}\n----------------------------------------\n`;
@@ -1093,36 +1374,38 @@
     }
 
     function buildSkuWiseText() {
-      const dateStr = document.getElementById('reportDateInput').value || getTodayDateStr(), cur = settings.currency || 'Rs.', skus = buildSkuSummaryList();
-      let tQ = 0, tF = 0, tN = 0, tD = 0; dayEndOrders.forEach(o => { tN += Number(o.netTotal || 0); tD += Number(o.totalDiscount || 0); });
-      let txt = `${settings.bizName} - TOTAL SKU LOADING SHEET\nDate: ${dateStr} | Total Shops: ${dayEndOrders.length}\n========================================\n\n`;
+      const visible = filterOrdersForRole(dayEndOrders), dateStr = document.getElementById('reportDateInput').value || getTodayDateStr(), cur = settings.currency || 'Rs.', skus = buildSkuSummaryList(visible);
+      let tQ = 0, tF = 0, tN = 0, tD = 0; visible.forEach(o => { tN += Number(o.netTotal || 0); tD += Number(o.totalDiscount || 0); });
+      let txt = `${settings.bizName} - TOTAL SKU LOADING SHEET\nDate: ${dateStr} | Total Shops: ${visible.length}\n========================================\n\n`;
       skus.forEach((s, idx) => { tQ += s.qty; tF += s.freeQty; txt += `${idx + 1}. ${s.name}\n   Order: ${s.qty} | Free: ${s.freeQty} | TOTAL DISPATCH: ${s.qty + s.freeQty} | Net: ${cur} ${formatPrice(s.net)}\n`; });
       txt += `========================================\nTOTAL PIECES: ${tQ} (+ ${tF} Free = ${tQ + tF})\nTOTAL DISCOUNT: ${cur} ${formatPrice(tD)}\nGRAND NET SALE: ${cur} ${formatPrice(tN)}\n`;
       return { txt, dateStr };
     }
 
     function downloadTextFile(txt, fn) { triggerBlobDownload(new Blob([txt], { type: 'text/plain;charset=utf-8' }), fn); showToast('Text file saved!'); }
-    function downloadShopWiseTXT() { if (!dayEndOrders.length) { alert('No orders.'); return; } const r = buildShopWiseText(); downloadTextFile(r.txt, `IMK-ShopWise-${r.dateStr}.txt`); }
-    function shareShopWiseWhatsApp() { if (!dayEndOrders.length) { alert('No orders.'); return; } window.open(`https://wa.me/?text=${encodeURIComponent(buildShopWiseText().txt)}`, '_blank'); }
-    function downloadSkuTXT() { if (!dayEndOrders.length) { alert('No orders.'); return; } const r = buildSkuWiseText(); downloadTextFile(r.txt, `IMK-SKU-Loading-${r.dateStr}.txt`); }
-    function shareSkuWhatsApp() { if (!dayEndOrders.length) { alert('No orders.'); return; } window.open(`https://wa.me/?text=${encodeURIComponent(buildSkuWiseText().txt)}`, '_blank'); }
+    function downloadShopWiseTXT() { const v = filterOrdersForRole(dayEndOrders); if (!v.length) { alert('No orders.'); return; } const r = buildShopWiseText(); downloadTextFile(r.txt, `IMK-ShopWise-${r.dateStr}.txt`); }
+    function shareShopWiseWhatsApp() { const v = filterOrdersForRole(dayEndOrders); if (!v.length) { alert('No orders.'); return; } window.open(`https://wa.me/?text=${encodeURIComponent(buildShopWiseText().txt)}`, '_blank'); }
+    function downloadSkuTXT() { const v = filterOrdersForRole(dayEndOrders); if (!v.length) { alert('No orders.'); return; } const r = buildSkuWiseText(); downloadTextFile(r.txt, `IMK-SKU-Loading-${r.dateStr}.txt`); }
+    function shareSkuWhatsApp() { const v = filterOrdersForRole(dayEndOrders); if (!v.length) { alert('No orders.'); return; } window.open(`https://wa.me/?text=${encodeURIComponent(buildSkuWiseText().txt)}`, '_blank'); }
 
     async function downloadShopWisePDF() {
-      if (!dayEndOrders.length) { alert('No orders.'); return; }
+      const visible = filterOrdersForRole(dayEndOrders); if (!visible.length) { alert('No orders.'); return; }
       const ok = await ensureJsPDF(); if (!ok) { alert('Internet required for PDF.'); return; }
       const { jsPDF } = window.jspdf, doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const dateStr = document.getElementById('reportDateInput').value || getTodayDateStr(), cur = settings.currency || 'Rs.', [r, g, b] = hexToRgb(settings.themeColor);
       doc.setFillColor(r, g, b); doc.rect(0, 0, 210, 24, 'F'); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
       doc.text(`${settings.bizName} - DAILY SHOP-WISE ORDERS`, 10, 11); doc.setFontSize(9.5); doc.setFont('helvetica', 'normal');
-      doc.text(`Date: ${dateStr}   |   Total Shops: ${dayEndOrders.length}   |   ${settings.city}`, 10, 18.5);
+      doc.text(`Date: ${dateStr}   |   Total Shops: ${visible.length}   |   ${settings.city}`, 10, 18.5);
       let y = 32, gN = 0, gD = 0;
-      dayEndOrders.forEach((o, idx) => {
+      visible.forEach((o, idx) => {
         gN += Number(o.netTotal || 0); gD += Number(o.totalDiscount || 0);
-        if (y > 260) { doc.addPage(); y = 16; }
-        doc.setFillColor(239, 246, 255); doc.setDrawColor(147, 197, 253); doc.roundedRect(10, y, 190, 8, 1.5, 1.5, 'FD');
+        if (y > 256) { doc.addPage(); y = 16; }
+        const subMeta = [o.shopArea, o.shopPhone, o.paymentType || 'Cash', o.bookerName].filter(Boolean).join(' • ');
+        doc.setFillColor(239, 246, 255); doc.setDrawColor(147, 197, 253); doc.roundedRect(10, y, 190, 12, 1.5, 1.5, 'FD');
         doc.setTextColor(15, 23, 42); doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5);
-        doc.text(`${idx + 1}. ${o.shopName} (${o.paymentType || 'Cash'}${o.bookerName ? ' - ' + o.bookerName : ''})`, 13, y + 5.5);
-        doc.setTextColor(r, g, b); doc.text(`Net: ${cur} ${formatPrice(o.netTotal)}`, 197, y + 5.5, { align: 'right' }); y += 12;
+        doc.text(`${idx + 1}. ${o.shopName}`.slice(0, 52), 13, y + 5.2);
+        doc.setTextColor(r, g, b); doc.text(`Net: ${cur} ${formatPrice(o.netTotal)}`, 197, y + 5.2, { align: 'right' });
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(71, 85, 105); doc.text(subMeta.slice(0, 90), 13, y + 10); y += 16;
         doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(51, 65, 85);
         (o.items || []).forEach(it => {
           if (y > 278) { doc.addPage(); y = 16; }
@@ -1140,16 +1423,16 @@
     }
 
     async function downloadSkuPDF() {
-      if (!dayEndOrders.length) { alert('No orders.'); return; }
+      const visible = filterOrdersForRole(dayEndOrders); if (!visible.length) { alert('No orders.'); return; }
       const ok = await ensureJsPDF(); if (!ok) { alert('Internet required for PDF.'); return; }
       const { jsPDF } = window.jspdf, doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      const dateStr = document.getElementById('reportDateInput').value || getTodayDateStr(), cur = settings.currency || 'Rs.', [r, g, b] = hexToRgb(settings.themeColor), skus = buildSkuSummaryList();
+      const dateStr = document.getElementById('reportDateInput').value || getTodayDateStr(), cur = settings.currency || 'Rs.', [r, g, b] = hexToRgb(settings.themeColor), skus = buildSkuSummaryList(visible);
       doc.setFillColor(r, g, b); doc.rect(0, 0, 210, 24, 'F'); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
       doc.text(`${settings.bizName} - GODOWN SKU LOADING SHEET`, 10, 11); doc.setFontSize(9.5); doc.setFont('helvetica', 'normal');
-      doc.text(`Date: ${dateStr}   |   Total Shops: ${dayEndOrders.length}   |   Total SKUs: ${skus.length}`, 10, 18.5);
+      doc.text(`Date: ${dateStr}   |   Total Shops: ${visible.length}   |   Total SKUs: ${skus.length}`, 10, 18.5);
       let y = 32; doc.setFillColor(226, 232, 240); doc.rect(10, y, 190, 8, 'F'); doc.setTextColor(15, 23, 42); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
       doc.text('#', 12, y + 5.5); doc.text('Product Name', 20, y + 5.5); doc.text('Qty', 112, y + 5.5); doc.text('Free', 128, y + 5.5); doc.text('Total Pcs', 144, y + 5.5); doc.text('Net Amount', 197, y + 5.5, { align: 'right' });
-      y += 11; let sQ = 0, sF = 0, sN = 0, sD = 0; dayEndOrders.forEach(o => { sN += Number(o.netTotal || 0); sD += Number(o.totalDiscount || 0); });
+      y += 11; let sQ = 0, sF = 0, sN = 0, sD = 0; visible.forEach(o => { sN += Number(o.netTotal || 0); sD += Number(o.totalDiscount || 0); });
       doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
       skus.forEach((s, idx) => {
         if (y > 274) { doc.addPage(); y = 18; }
@@ -1339,8 +1622,11 @@
     }
 
     function openSettingsModal() {
-      document.getElementById('setCloudUrl').value = settings.cloudUrl || DEFAULT_CLOUD_URL; document.getElementById('setAdminPin').value = settings.adminPin || '1234';
-      document.getElementById('setBizName').value = settings.bizName; document.getElementById('setCity').value = settings.city || ''; document.getElementById('setPhone').value = settings.phone || '';
+      document.getElementById('setCloudUrl').value = settings.cloudUrl || DEFAULT_CLOUD_URL;
+      document.getElementById('setAdminEmail').value = settings.adminEmail || ADMIN_EMAIL;
+      document.getElementById('setAdminPin').value = settings.adminPin || DEFAULT_ADMIN_PASS;
+      document.getElementById('setBizName').value = settings.bizName;
+      document.getElementById('setCity').value = settings.city || ''; document.getElementById('setPhone').value = settings.phone || '';
       document.getElementById('setCurrency').value = settings.currency || 'Rs.'; document.getElementById('setThemeColor').value = settings.themeColor || '#04153d';
       document.getElementById('setOfferTitle').value = settings.offerTitle || 'WHOLESALE CATALOGUE'; document.getElementById('setFooter').value = settings.footerNote || '';
       tempLogoImage = settings.logo || ''; document.getElementById('logoPreviewBox').innerHTML = tempLogoImage ? `<img src="${tempLogoImage}" />` : '<span style="color:#cbd5e1;font-size:0.8rem;">No banner selected</span>';
@@ -1350,8 +1636,9 @@
 
     async function saveSettings(e) {
       e.preventDefault();
-      const newPin = document.getElementById('setAdminPin').value.trim(); if (!/^\d{4}$/.test(newPin)) { alert('Admin PIN sirf 4 digits ka hona chahiye!'); return; }
-      settings.cloudUrl = cleanCloudUrl(document.getElementById('setCloudUrl').value || DEFAULT_CLOUD_URL); settings.adminPin = newPin;
+      const newPin = document.getElementById('setAdminPin').value.trim(); if (!newPin) { alert('Admin Password zaroori hai!'); return; }
+      settings.cloudUrl = cleanCloudUrl(document.getElementById('setCloudUrl').value || DEFAULT_CLOUD_URL);
+      settings.adminEmail = ADMIN_EMAIL; settings.adminPin = newPin; settings.v7PassSet = true;
       settings.bizName = document.getElementById('setBizName').value.trim(); settings.city = document.getElementById('setCity').value.trim(); settings.phone = document.getElementById('setPhone').value.trim();
       settings.currency = document.getElementById('setCurrency').value.trim() || 'Rs.'; settings.themeColor = document.getElementById('setThemeColor').value;
       settings.offerTitle = document.getElementById('setOfferTitle').value.trim() || 'WHOLESALE CATALOGUE'; settings.footerNote = document.getElementById('setFooter').value.trim(); settings.logo = tempLogoImage;
@@ -1366,13 +1653,15 @@
       populateCategoryFilter(); renderProducts(); closeModal('settingsModal'); showToast('Cleared.');
     }
 
-    function exportBackup() { sortProductsList(); triggerBlobDownload(new Blob([JSON.stringify({ settings, products, exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' }), `IMK-Enterprises-backup-${getTodayDateStr()}.json`); showToast('Backup downloaded!'); }
+    function exportBackup() { sortProductsList(); triggerBlobDownload(new Blob([JSON.stringify({ settings, products, bookers: getBookersMap(), shops: getSavedShopsMap(), exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' }), `IMK-Enterprises-backup-${getTodayDateStr()}.json`); showToast('Backup downloaded!'); }
     function importBackup(event) {
       const file = event.target.files[0]; if (!file) return; const reader = new FileReader();
       reader.onload = async (e) => {
         try {
           const data = JSON.parse(e.target.result);
           if (data.settings) { settings = { ...settings, ...data.settings, key: 'appSettings' }; await dbPut('settings', settings); }
+          if (data.bookers) saveBookersMap(data.bookers);
+          if (data.shops) { localStorage.setItem('imk_saved_shops_v2', JSON.stringify(data.shops)); renderShopsDatalist(); }
           if (Array.isArray(data.products)) { await dbClear('products'); for (const p of data.products) await dbPut('products', p); products = data.products; }
           applySettingsUI(); populateCategoryFilter(); renderProducts(); closeModal('settingsModal'); showToast('Backup restored!');
         } catch (_) { alert('Invalid backup file.'); }
@@ -1517,3 +1806,4 @@
   </script>
 </body>
 </html>
+
